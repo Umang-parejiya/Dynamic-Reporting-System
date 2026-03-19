@@ -1,0 +1,103 @@
+/* ── App Layout ───────────────────────────────────────────────────── */
+.app-layout {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+  background: var(--bg);
+}
+
+/* ── Sidebar ──────────────────────────────────────────────────────── */
+.sidebar {
+  width: 280px;
+  min-width: 280px;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  transition: width .3s cubic-bezier(0.16, 1, 0.3, 1), min-width .3s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 10;
+}
+.sidebar.closed {
+  width: 0;
+  min-width: 0;
+  overflow: hidden;
+  border-right-color: transparent;
+}
+
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 24px 20px;
+  background: var(--bg);
+}
+.logo-icon {
+  font-size: 24px;
+  color: var(--accent);
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+}
+.logo-text {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+.logo-text span {
+  color: var(--text3);
+  font-weight: 400;
+}
+
+/* ── Main ─────────────────────────────────────────────────────────── */
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+  background: var(--bg2);
+  border-radius: 16px 0 0 16px;
+  margin: 16px 16px 16px 0;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+.sidebar.closed + .main-content {
+  margin-left: 16px;
+  border-radius: 16px;
+}
+
+.content-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  gap: 0;
+  background: var(--bg);
+  border-radius: 12px;
+  margin: 0 16px;
+  border: 1px solid var(--border);
+}
+
+.results-panel {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border-radius: 0 0 12px 12px;
+}
+
+/* Override scrollbar for main areas to look cleaner against the panel */
+.main-content ::-webkit-scrollbar-thumb {
+  border-color: var(--bg);
+}
