@@ -42,12 +42,11 @@ export default function TopBar() {
   }
 
   return (
-    <div style={{
+    <div className="top-bar-container" style={{
       display: 'flex', alignItems: 'center', gap: 10,
-      padding: '10px 20px',
-      background: 'var(--bg2)',
-      borderBottom: '1px solid var(--border)',
+      padding: '12px 24px',
       flexShrink: 0,
+      zIndex: 5,
     }}>
       {/* Sidebar Toggle */}
       <button className="btn btn-icon" onClick={() => setSidebarOpen(!sidebarOpen)} data-tip="Toggle sidebar">

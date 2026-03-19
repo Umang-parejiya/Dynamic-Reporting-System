@@ -45,7 +45,7 @@ export default function FilterBuilder() {
   const activeCount = filters.length
 
   return (
-    <div style={{ background: 'var(--bg2)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+    <div className="card" style={{ flexShrink: 0 }}>
       {/* Header */}
       <div
         style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 20px', cursor: 'pointer' }}
@@ -216,6 +216,7 @@ function FilterNode({ node, isRoot, idx, schema, facets, fetchFacets, updateNode
 
       <FilterValue
         filter={node}
+        schema={schema}
         facetOptions={facetOptions}
         onChange={(val) => updateNode({ ...node, value: val })}
         onMinChange={(min) => updateNode({ ...node, min })}
@@ -229,7 +230,7 @@ function FilterNode({ node, isRoot, idx, schema, facets, fetchFacets, updateNode
   )
 }
 
-function FilterValue({ filter, facetOptions, onChange, onMinChange, onMaxChange, onFromChange, onToChange }) {
+function FilterValue({ filter, schema, facetOptions, onChange, onMinChange, onMaxChange, onFromChange, onToChange }) {
   const inputStyle = { fontSize: 12, width: '100%' }
   const listId = `facets-${filter.field}`
 
@@ -268,12 +269,16 @@ function FilterValue({ filter, facetOptions, onChange, onMinChange, onMaxChange,
         </select>
       )
     default: // text
+      const fieldSchema = schema.find(s => s.name === filter.field)
+      const isNumeric = fieldSchema && (fieldSchema.type === 'integer' || fieldSchema.type === 'float')
+      
       return (
         <div style={{ flex: 1, position: 'relative' }}>
           <input
             className="input"
+            type={isNumeric ? 'number' : 'text'}
             style={{ ...inputStyle }}
-            placeholder="Search value..."
+            placeholder={isNumeric ? "Search number..." : "Search value..."}
             value={filter.value || ''}
             onChange={e => onChange(e.target.value)}
             list={listId}

@@ -98,7 +98,14 @@ export const useStore = create((set, get) => ({
     const page = targetPage || s.page
     set({ loading: true, compareResult: null, page })
 
-    const activeFilters = s.filters.filter(f => f.field && f.value !== '' && (f.type !== 'nested' || (f.children && f.children.length > 0)))
+    const activeFilters = s.filters.filter(f => {
+      if (f.type === 'nested') return true
+      if (!f.field) return false
+      if (f.type === 'range') return f.min || f.max
+      if (f.type === 'date_range') return f.from || f.to
+      if (Array.isArray(f.value)) return f.value.length > 0
+      return f.value !== '' && f.value != null
+    })
     const body = {
       rows: s.rows,
       cursor: s.cursorHistory[page - 1] || '*',
@@ -165,7 +172,14 @@ export const useStore = create((set, get) => ({
       return
     }
     set({ loading: true })
-    const activeFilters = s.filters.filter(f => f.field && f.value !== '' && (f.type !== 'nested' || (f.children && f.children.length > 0)))
+    const activeFilters = s.filters.filter(f => {
+      if (f.type === 'nested') return true
+      if (!f.field) return false
+      if (f.type === 'range') return f.min || f.max
+      if (f.type === 'date_range') return f.from || f.to
+      if (Array.isArray(f.value)) return f.value.length > 0
+      return f.value !== '' && f.value != null
+    })
     
     // Construct metrics for all requested yFields
     const metrics = []

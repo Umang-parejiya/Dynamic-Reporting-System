@@ -1,1 +1,28 @@
-[]
+[
+    {
+        "id": "view_69bbb0087210d",
+        "name": "price between: 740.52 to 945.01",
+        "columns": [],
+        "filters": [
+            {
+                "field": "product_id_i",
+                "type": "range",
+                "value": "",
+                "min": "8480",
+                "max": "10328"
+            },
+            {
+                "field": "Price_f",
+                "type": "range",
+                "value": "",
+                "min": "740.52",
+                "max": "945.01"
+            }
+        ],
+        "sort": "product_id_i asc",
+        "created_at": "2026-03-19T08:12:56+00:00",
+        "is_default": false,
+        "shared_with_team": false,
+        "version": 1
+    }
+]

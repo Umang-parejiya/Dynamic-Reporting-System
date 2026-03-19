@@ -143,7 +143,14 @@ function handleSchema(string $solrUrl): void
         $name = $field['name'];
         if (str_starts_with($name, '_')) continue;
 
-        $type = inferType($name);
+        $solrType = $field['type'] ?? '';
+        $type = 'string';
+        if (str_contains(strtolower($solrType), 'int') || str_contains(strtolower($solrType), 'long')) $type = 'integer';
+        elseif (str_contains(strtolower($solrType), 'float') || str_contains(strtolower($solrType), 'double')) $type = 'float';
+        elseif (str_contains(strtolower($solrType), 'bool')) $type = 'boolean';
+        elseif (str_contains(strtolower($solrType), 'date')) $type = 'date';
+        else $type = inferType($name);
+
         $fields[] = [
             'name'       => $name,
             'label'      => formatLabel($name),
@@ -161,10 +168,21 @@ function handleSchema(string $solrUrl): void
     $dynamicFields = [];
     foreach ($sampleDoc as $key => $val) {
         if (str_starts_with($key, '_') || $key === 'id') continue;
+        $phpType = gettype($val);
+        $inferred = 'string';
+        if ($phpType === 'integer') $inferred = 'integer';
+        elseif ($phpType === 'double') $inferred = 'float';
+        elseif ($phpType === 'boolean') $inferred = 'boolean';
+        elseif ($phpType === 'string' && preg_match('/^\d{4}-\d{2}-\d{2}T/', $val)) $inferred = 'date';
+        elseif ($phpType === 'string' && is_numeric($val)) {
+            $inferred = str_contains($val, '.') ? 'float' : 'integer';
+        }
+        else $inferred = inferType($key);
+
         $dynamicFields[] = [
             'name'       => $key,
             'label'      => formatLabel($key),
-            'type'       => inferType($key),
+            'type'       => $inferred,
             'sortable'   => true,
             'filterable' => true,
         ];
@@ -175,8 +193,14 @@ function handleSchema(string $solrUrl): void
     $existingNames = array_column($fields, 'name');
     
     foreach ($dynamicFields as $df) {
-        if (!in_array($df['name'], $existingNames)) {
+        $idx = array_search($df['name'], $existingNames);
+        if ($idx === false) {
             $allFields[] = $df;
+        } else {
+            // Upgrade type if dynamic detection found numerical data but static schema only assumed string
+            if ($allFields[$idx]['type'] === 'string' && $df['type'] !== 'string') {
+                $allFields[$idx]['type'] = $df['type'];
+            }
         }
     }
 
@@ -415,27 +439,57 @@ function buildFilterQueries(array $filters): array
 
 function buildSingleFilter(array $filter): ?string
 {
-    $field = $filter['field'] ?? null;
-    $type  = $filter['type']  ?? 'text';
-    $value = $filter['value'] ?? null;
-    $op    = $filter['op']    ?? 'AND';
+    if (!isset($filter['field']) || !isset($filter['type'])) {
+        // Handle nested groups
+        if (($filter['type'] ?? '') === 'nested') {
+            $op = $filter['op'] ?? 'AND';
+            $children = $filter['children'] ?? [];
+            $parts = array_filter(array_map('buildSingleFilter', $children));
+            if (empty($parts)) return null;
+            return '(' . implode(" $op ", $parts) . ')';
+        }
+        return null;
+    }
 
-    if (!$field || $value === null || $value === '') return null;
+    // 1. Handle spaces in field names for Solr (e.g., "Product Id" -> "Product\ Id")
+    $field = str_replace(' ', '\ ', $filter['field']);
+    $type = $filter['type'];
 
-    switch ($type) {
-        case 'range':
-            $min = $filter['min'] ?? '*';
-            $max = $filter['max'] ?? '*';
-            return "$field:[$min TO $max]";
+    // 2. Handle Range and Date Range (Bypass the 'value' check)
+    if ($type === 'range' || $type === 'date_range') {
+        // Support both UI keys: 'from'/'to' (dates) and 'min'/'max' (numbers)
+        $from = $filter['from'] ?? $filter['min'] ?? '*';
+        $to   = $filter['to']   ?? $filter['max'] ?? '*';
+        
+        if ($from === '') $from = '*';
+        if ($to   === '') $to   = '*';
 
-        case 'date_range':
-            $from = $filter['from'] ?? '*';
-            $to   = $filter['to']   ?? '*';
-            // Convert to Solr date format
+        // Strip commas if they are numeric ranges
+        $from = str_replace(',', '', (string)$from);
+        $to = str_replace(',', '', (string)$to);
+
+        // Convert to Solr date format if it looks like a date and it's a date_range
+        if ($type === 'date_range') {
             if ($from !== '*') $from = date('Y-m-d\TH:i:s\Z', strtotime($from));
             if ($to   !== '*') $to   = date('Y-m-d\TH:i:s\Z', strtotime($to));
-            return "$field:[$from TO $to]";
+        }
+        
+        return "$field:[$from TO $to]";
+    }
 
+    // 3. Reject other filters if 'value' is missing
+    $value = $filter['value'] ?? null;
+    if ($value === null || $value === '') {
+        return null;
+    }
+
+    // 4. Strip commas from numeric text searches
+    if (is_string($value)) {
+        $value = str_replace(',', '', $value);
+    }
+
+    // Build the query string based on type
+    switch ($type) {
         case 'multi_select':
             $vals = is_array($value) ? $value : [$value];
             $escaped = array_map(fn($v) => '"' . addslashes($v) . '"', $vals);
@@ -444,15 +498,14 @@ function buildSingleFilter(array $filter): ?string
         case 'boolean':
             return "$field:" . ($value ? 'true' : 'false');
 
-        case 'nested':
-            // Recursive: (A AND B) OR C
-            $children = $filter['children'] ?? [];
-            $parts = array_filter(array_map('buildSingleFilter', $children));
-            if (empty($parts)) return null;
-            return '(' . implode(" $op ", $parts) . ')';
+        case 'text':
+        case 'text_search':
+            // Quote the value to handle internal spaces, or use wildcards
+            $escapedValue = addslashes($value);
+            return "$field:*" . $escapedValue . "*";
 
-        default: // text
-            return "$field:*" . addslashes($value) . '*';
+        default:
+            return "$field:\"" . addslashes((string)$value) . "\"";
     }
 }
 
@@ -496,16 +549,30 @@ function executeDateCompare(string $solrUrl, array $params, array $dateCompare):
 
 // ── Solr Helpers ──────────────────────────────────────────────────────────────
 
+function buildSolrQueryString(array $params): string
+{
+    $queryStringParts = [];
+    foreach ($params as $key => $val) {
+        if (is_array($val)) {
+            // Solr expects multiple fq=... parameters, not fq[0]=...
+            foreach ($val as $v) {
+                $queryStringParts[] = urlencode($key) . '=' . urlencode($v);
+            }
+        } else {
+            $queryStringParts[] = urlencode($key) . '=' . urlencode($val);
+        }
+    }
+    return implode('&', $queryStringParts);
+}
+
 function solrRequest(string $url, array $params): string
 {
     $ch = curl_init();
-    $postData = http_build_query($params, '', '&', PHP_QUERY_RFC3986);
+    $queryString = buildSolrQueryString($params);
 
     curl_setopt_array($ch, [
-        CURLOPT_URL            => $url,
-        CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => $postData,
-        CURLOPT_HTTPHEADER     => ['Content-Type: application/x-www-form-urlencoded'],
+        CURLOPT_URL            => $url . '?' . $queryString,
+        CURLOPT_POST           => false, // Change to GET for simpler query string handling or use POST with built string
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT        => 30,
     ]);

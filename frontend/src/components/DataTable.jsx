@@ -28,8 +28,8 @@ export default function DataTable() {
 
   const displayCols = orderedCols.length
     ? orderedCols
-    : results.length
-      ? Object.keys(results[0]).filter(k => !k.startsWith('_'))
+    : schema.length
+      ? schema.map(f => f.name)
       : []
 
   const getLabel = (name) => {
@@ -195,22 +195,36 @@ export default function DataTable() {
                   onMouseEnter={e => e.currentTarget.style.background = 'rgba(108,99,255,.07)'}
                   onMouseLeave={e => e.currentTarget.style.background = ri % 2 === 0 ? 'transparent' : 'rgba(255,255,255,.015)'}
                 >
-                  {displayCols.map(col => (
-                    <td
-                      key={col}
-                      style={{
-                        padding: '8px 12px',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        color: row[col] == null ? 'var(--text3)' : 'var(--text)',
-                        maxWidth: columnWidths[col] || 140,
-                      }}
-                      title={String(row[col] ?? '')}
-                    >
-                      <CellValue value={row[col]} col={col} />
-                    </td>
-                  ))}
+                    {displayCols.map(col => {
+                      // Ultra-Smart lookup: strip any existing suffix and try all variations
+                      const baseName = col.replace(/(_s|_i|_f|_b|_dt|_txt)$/, '')
+                      const variants = [baseName, baseName + '_f', baseName + '_i', baseName + '_s', baseName + '_dt', baseName + '_b', baseName + '_txt']
+                      
+                      let val = undefined
+                      for (const v of variants) {
+                        if (row[v] !== undefined && row[v] !== null) {
+                          val = row[v]
+                          break
+                        }
+                      }
+                      
+                      return (
+                        <td
+                          key={col}
+                          style={{
+                            padding: '8px 12px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            color: val == null ? 'var(--text3)' : 'var(--text)',
+                            maxWidth: columnWidths[col] || 140,
+                          }}
+                          title={String(val ?? '')}
+                        >
+                          <CellValue value={val} col={col} schema={schema} />
+                        </td>
+                      )
+                    })}
                 </tr>
               ))}
             </tbody>
@@ -259,8 +273,12 @@ export default function DataTable() {
   )
 }
 
-function CellValue({ value, col }) {
+function CellValue({ value, col, schema }) {
   if (value == null) return <span style={{ color: 'var(--text3)', fontStyle: 'italic' }}>—</span>
+  
+  const fieldSchema = schema.find(s => s.name === col || s.name === col + '_f' || s.name === col + '_i' || s.name === col + '_s')
+  const isFloat = fieldSchema?.type === 'float' || col.toLowerCase().includes('price')
+
   if (typeof value === 'boolean') {
     return (
       <span className={`badge ${value ? 'badge-success' : 'badge-error'}`}>
@@ -268,17 +286,30 @@ function CellValue({ value, col }) {
       </span>
     )
   }
+  
   if (col.endsWith('_dt') || (typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}T/))) {
     return <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text2)' }}>
       {new Date(value).toLocaleDateString()}
     </span>
   }
-  if (typeof value === 'number') {
+
+  // Handle numbers and numeric strings
+  const num = typeof value === 'number' ? value : (is_numeric(value) ? parseFloat(value) : null)
+  
+  if (num !== null) {
     return <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent3)' }}>
-      {typeof value === 'float' ? value.toFixed(2) : value.toLocaleString()}
+      {isFloat 
+        ? num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        : num.toLocaleString()
+      }
     </span>
   }
+  
   return <span>{String(value)}</span>
+}
+
+function is_numeric(n) {
+  return !isNaN(parseFloat(n)) && isFinite(n);
 }
 
 function CompareView({ compareResult, displayCols, getLabel }) {

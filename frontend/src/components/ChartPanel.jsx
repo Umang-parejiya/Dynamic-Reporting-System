@@ -142,7 +142,7 @@ export default function ChartPanel() {
       </div>
 
       {/* Chart Area */}
-      <div style={{ flex: 1, padding: '30px 40px', overflow: 'hidden', background: 'var(--bg)' }} ref={chartRef}>
+      <div style={{ flex: 1, padding: '30px 40px', overflow: 'hidden' }} ref={chartRef}>
         {chartData.length === 0 ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text3)', fontSize: 13 }}>
             No data to display. Add filters or verify schema.

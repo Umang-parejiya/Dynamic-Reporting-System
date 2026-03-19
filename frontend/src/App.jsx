@@ -24,7 +24,7 @@ export default function App() {
       <aside className={`sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
         <div className="sidebar-logo">
           <span className="logo-icon">▲</span>
-          <span className="logo-text">Data<span>Lens</span></span>
+          <span className="logo-text">Reporting<span>System</span></span>
         </div>
         <Sidebar />
       </aside>
