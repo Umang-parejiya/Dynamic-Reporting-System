@@ -3,11 +3,18 @@ import { useStore } from '../store'
 import { Eye, EyeOff, GripVertical, ChevronDown, ChevronRight } from 'lucide-react'
 
 export default function Sidebar() {
-  const { schema, selectedColumns, setSelectedColumns, columnOrder, setColumnOrder } = useStore()
+  const { 
+    schema, selectedColumns, setSelectedColumns, columnOrder, setColumnOrder,
+    sources, selectedSource, fetchSchema 
+  } = useStore()
   const [search, setSearch] = useState('')
   const [collapsed, setCollapsed] = useState({})
   const [dragging, setDragging] = useState(null)
   const [dragOver, setDragOver] = useState(null)
+
+  const handleSourceChange = (e) => {
+    fetchSchema(e.target.value)
+  }
 
   // Group columns by suffix type
   const groups = {}
@@ -71,8 +78,22 @@ export default function Sidebar() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+      {/* Source Selector */}
+      <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ fontSize: '11px', color: 'var(--text3)', marginBottom: '6px', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Source CSV</div>
+        <select 
+          className="input" 
+          style={{ fontSize: '13px', height: '38px', width: '100%', cursor: 'pointer', borderRadius: '6px', border: '1px solid var(--border)' }}
+          value={selectedSource || ''}
+          onChange={handleSourceChange}
+        >
+          <option value="">All Sources</option>
+          {sources.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </div>
+
       {/* Search */}
-      <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+      <div style={{ padding: '16px', borderBottom: '1px solid var(--border)' }}>
         <input
           className="input"
           placeholder="Search columns..."

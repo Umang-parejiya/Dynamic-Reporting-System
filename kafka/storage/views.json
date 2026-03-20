@@ -24,5 +24,88 @@
         "is_default": false,
         "shared_with_team": false,
         "version": 1
+    },
+    {
+        "id": "view_69bbcdb3f342a",
+        "name": "price bitween :- 701.93 to 1867.89 AND  product id : 88211 to 88438",
+        "columns": [],
+        "filters": [
+            {
+                "field": "product_id_i",
+                "type": "range",
+                "value": "",
+                "min": "88211",
+                "max": "88438"
+            },
+            {
+                "field": "Price_f",
+                "type": "range",
+                "value": "",
+                "min": "701.93",
+                "max": "1867.89"
+            }
+        ],
+        "sort": "product_id_i asc",
+        "created_at": "2026-03-19T10:19:31+00:00",
+        "is_default": false,
+        "shared_with_team": false,
+        "version": 1
+    },
+    {
+        "id": "view_69bbd27b924b9",
+        "name": "HS.csv data",
+        "columns": [],
+        "filters": [
+            {
+                "field": "source_file_s",
+                "type": "text",
+                "value": "HS.csv",
+                "min": "14847.49"
+            }
+        ],
+        "sort": "Price_f desc",
+        "created_at": "2026-03-19T10:39:55+00:00",
+        "is_default": false,
+        "shared_with_team": false,
+        "version": 1
+    },
+    {
+        "id": "view_69bd0f42c93c2",
+        "name": "AFA.CSV",
+        "columns": [
+            "id",
+            "product_id_i",
+            "parent_sku_s",
+            "Product_Name_s",
+            "Price_f",
+            "Map_Price_i",
+            "Type_s",
+            "Brand_Name_s",
+            "AFA_URL_s",
+            "Quantity_i",
+            "Date_s",
+            "Stock_s",
+            "Last_Price_Change_dt",
+            "source_file_s",
+            "ingested_at_dt"
+        ],
+        "filters": [
+            {
+                "type": "nested",
+                "op": "AND",
+                "children": [
+                    {
+                        "field": "",
+                        "type": "text",
+                        "value": ""
+                    }
+                ]
+            }
+        ],
+        "sort": "score desc",
+        "created_at": "2026-03-20T09:11:30+00:00",
+        "is_default": false,
+        "shared_with_team": false,
+        "version": 1
     }
 ]

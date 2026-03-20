@@ -6,16 +6,29 @@ export const useStore = create((set, get) => ({
   // ── Schema ────────────────────────────────────────────────────────
   schema: [],
   schemaLoading: false,
-  fetchSchema: async () => {
-    set({ schemaLoading: true })
+  sources: [],
+  selectedSource: null,
+  fetchSchema: async (source) => {
+    set({ schemaLoading: true, selectedSource: source || null })
     try {
-      const res = await fetch(`${API}/schema`)
+      const url = source ? `${API}/schema?source=${encodeURIComponent(source)}` : `${API}/schema`
+      const res = await fetch(url)
       const data = await res.json()
       set({ schema: data.fields || [] })
+      get().query(1)
     } catch (e) {
       console.error('Schema fetch failed', e)
     } finally {
       set({ schemaLoading: false })
+    }
+  },
+  fetchSources: async () => {
+    try {
+      const res = await fetch(`${API}/sources`)
+      const data = await res.json()
+      set({ sources: data.sources || [] })
+    } catch (e) {
+      console.error('Sources fetch failed', e)
     }
   },
 
@@ -59,7 +72,7 @@ export const useStore = create((set, get) => ({
         })
         return true
       }
-    } catch (e) {}
+    } catch (e) { }
     return false
   },
 
@@ -76,8 +89,10 @@ export const useStore = create((set, get) => ({
 
   // ── Date ──────────────────────────────────────────────────────────
   dateRange: { from: '', to: '' },
+  dateField: 'ingested_at_dt',
   dateCompare: null,
   setDateRange: (dr) => set({ dateRange: dr }),
+  setDateField: (df) => set({ dateField: df }),
   setDateCompare: (dc) => set({ dateCompare: dc }),
 
   // ── Query / Results ───────────────────────────────────────────────
@@ -99,19 +114,26 @@ export const useStore = create((set, get) => ({
     set({ loading: true, compareResult: null, page })
 
     const activeFilters = s.filters.filter(f => {
-      if (f.type === 'nested') return true
+      if (f.type === 'nested') return (f.children && f.children.length > 0)
       if (!f.field) return false
-      if (f.type === 'range') return f.min || f.max
+      if (f.type === 'range') return f.min || f.max || (f.value !== '' && f.value != null)
       if (f.type === 'date_range') return f.from || f.to
       if (Array.isArray(f.value)) return f.value.length > 0
       return f.value !== '' && f.value != null
     })
+
+    if (s.selectedSource) {
+      activeFilters.push({ field: 'source_file_s', type: 'text', value: s.selectedSource })
+    }
+
     const body = {
       rows: s.rows,
       cursor: s.cursorHistory[page - 1] || '*',
       sort: s.sort,
       fields: s.selectedColumns.length ? s.selectedColumns : ['*'],
       filters: activeFilters,
+      dateRange: s.dateRange,
+      dateField: s.dateField,
       dateCompare: s.dateCompare,
     }
 
@@ -180,7 +202,7 @@ export const useStore = create((set, get) => ({
       if (Array.isArray(f.value)) return f.value.length > 0
       return f.value !== '' && f.value != null
     })
-    
+
     // Construct metrics for all requested yFields
     const metrics = []
     if (yFields.length > 0) {
@@ -191,7 +213,7 @@ export const useStore = create((set, get) => ({
     } else {
       metrics.push({ type: 'count', field: '' })
     }
-    
+
     try {
       const res = await fetch(`${API}/aggregations`, {
         method: 'POST',
@@ -205,7 +227,7 @@ export const useStore = create((set, get) => ({
       })
       const data = await res.json()
       set({ chartData: data.aggregations || [] })
-    } catch(e) {} finally {
+    } catch (e) { } finally {
       set({ loading: false })
     }
   },
@@ -217,7 +239,7 @@ export const useStore = create((set, get) => ({
       const res = await fetch(`${API}/views`)
       const data = await res.json()
       set({ views: data.views || [] })
-    } catch (e) {}
+    } catch (e) { }
   },
   saveView: async (viewData) => {
     const s = get()

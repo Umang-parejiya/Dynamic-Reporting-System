@@ -2,28 +2,43 @@
     "user_id": "default",
     "report_id": "default",
     "column_config": {
-        "widths": [],
+        "widths": {
+            "Product_Name_s": 160
+        },
         "order": [
-            "product_id_i",
             "id",
+            "product_id_i",
             "parent_sku_s",
             "Product_Name_s",
-            "Price_f",
             "Type_s",
+            "Price_f",
+            "Map_Price_i",
             "Brand_Name_s",
-            "AMZ_SKU_s",
-            "AMZ_URL_s",
-            "AMZ_PRICE_f",
-            "AMZ_Name_s",
+            "AFA_URL_s",
+            "Quantity_i",
             "Date_s",
             "Stock_s",
-            "Last_Price_Change_s",
-            "Extracted_URL_s",
-            "Image_URL_s",
+            "Last_Price_Change_dt",
             "source_file_s",
             "ingested_at_dt"
         ],
-        "selected": []
+        "selected": [
+            "id",
+            "product_id_i",
+            "parent_sku_s",
+            "Product_Name_s",
+            "Price_f",
+            "Map_Price_i",
+            "Type_s",
+            "Brand_Name_s",
+            "AFA_URL_s",
+            "Quantity_i",
+            "Date_s",
+            "Stock_s",
+            "Last_Price_Change_dt",
+            "source_file_s",
+            "ingested_at_dt"
+        ]
     },
-    "updated_at": "2026-03-19T07:40:56+00:00"
+    "updated_at": "2026-03-20T09:14:35+00:00"
 }

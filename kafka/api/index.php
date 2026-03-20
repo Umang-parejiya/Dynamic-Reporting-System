@@ -45,6 +45,7 @@ switch (true) {
     case $uri === '/aggregations' && $method === 'POST': handleAggregations($solrUrl); break;
     case $uri === '/column-config' && $method === 'GET': handleGetColumnConfig(); break;
     case $uri === '/column-config' && $method === 'POST': handleSaveColumnConfig(); break;
+    case $uri === '/sources' && $method === 'GET': handleGetSources($solrUrl); break;
     case $uri === '/health' && $method === 'GET':  json(['status' => 'ok', 'time' => date('c')]); break;
     default:
         http_response_code(404);
@@ -69,9 +70,18 @@ function handleQuery(string $solrUrl): void
     $q       = $body['q']     ?? '*:*';
     $fields  = $body['fields'] ?? ['*'];
     $filters = $body['filters'] ?? [];
+    $dateRange = $body['dateRange'] ?? null;
+    $dateField = $body['dateField'] ?? 'ingested_at_dt';
     $dateCompare = $body['dateCompare'] ?? null;
 
     $fqs = buildFilterQueries($filters);
+
+    // Apply Global Date Filter
+    if ($dateRange && ($dateRange['from'] ?? null) && ($dateRange['to'] ?? null)) {
+        $from = date('Y-m-d\TH:i:s\Z', strtotime($dateRange['from'] . ' 00:00:00'));
+        $to   = date('Y-m-d\TH:i:s\Z', strtotime($dateRange['to'] . ' 23:59:59'));
+        $fqs[] = "$dateField:[$from TO $to]";
+    }
 
     $params = [
         'q'     => $q,
@@ -135,6 +145,7 @@ function handleQuery(string $solrUrl): void
 
 function handleSchema(string $solrUrl): void
 {
+    $source = $_GET['source'] ?? null;
     $response = solrGet($solrUrl . '/schema/fields?wt=json&indent=false');
     $data = json_decode($response, true);
 
@@ -161,7 +172,8 @@ function handleSchema(string $solrUrl): void
     }
 
     // Also get dynamic field examples by querying a sample doc
-    $sampleResp = solrGet($solrUrl . '/select?q=*:*&rows=1&wt=json');
+    $query = $source ? 'source_file_s:"' . addslashes($source) . '"' : '*:*';
+    $sampleResp = solrGet($solrUrl . '/select?q=' . urlencode($query) . '&rows=1&wt=json');
     $sampleData = json_decode($sampleResp, true);
     $sampleDoc  = $sampleData['response']['docs'][0] ?? [];
 
@@ -398,6 +410,26 @@ function handleAggregations(string $solrUrl): void
     json(['aggregations' => $resp['facets']['categories']['buckets'] ?? []]);
 }
 
+function handleGetSources(string $solrUrl): void
+{
+    $params = [
+        'q' => '*:*',
+        'rows' => 0,
+        'facet' => 'true',
+        'facet.field' => 'source_file_s',
+        'facet.mincount' => 1,
+        'wt' => 'json'
+    ];
+    $resp = json_decode(solrRequest($solrUrl . '/select', $params), true);
+    $values = $resp['facet_counts']['facet_fields']['source_file_s'] ?? [];
+    
+    $sources = [];
+    for ($i = 0; $i < count($values); $i += 2) {
+        $sources[] = $values[$i];
+    }
+    json(['sources' => $sources]);
+}
+
 function handleGetColumnConfig(): void {
     $body = getBody();
     $userId = $_GET['user_id'] ?? $body['user_id'] ?? 'default';
@@ -457,6 +489,21 @@ function buildSingleFilter(array $filter): ?string
 
     // 2. Handle Range and Date Range (Bypass the 'value' check)
     if ($type === 'range' || $type === 'date_range') {
+        $operator = $filter['operator'] ?? null;
+        
+        // Handle specific operators for single numeric values (e.g., price < 300)
+        if ($type === 'range' && $operator && isset($filter['value']) && $filter['value'] !== '') {
+            $val = str_replace(',', '', (string)$filter['value']);
+            switch ($operator) {
+                case '<':  return "$field:{* TO $val}";
+                case '>':  return "$field:{$val} TO *}";
+                case '<=': return "$field:[* TO $val]";
+                case '>=': return "$field:[$val TO *]";
+                case '=':  return "$field:\"$val\"";
+            }
+        }
+
+        // Fallback to min/max range
         // Support both UI keys: 'from'/'to' (dates) and 'min'/'max' (numbers)
         $from = $filter['from'] ?? $filter['min'] ?? '*';
         $to   = $filter['to']   ?? $filter['max'] ?? '*';

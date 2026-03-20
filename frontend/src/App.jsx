@@ -10,11 +10,12 @@ import StatusBar from './components/StatusBar'
 import './App.css'
 
 export default function App() {
-  const { fetchSchema, fetchViews, query, activeTab, sidebarOpen } = useStore()
+  const { fetchSchema, fetchViews, fetchSources, query, activeTab, sidebarOpen } = useStore()
 
   useEffect(() => {
     fetchSchema()
     fetchViews()
+    fetchSources()
     query()
   }, [])
 

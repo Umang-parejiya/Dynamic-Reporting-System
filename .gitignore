@@ -1,0 +1,23 @@
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+.vscode/
+.idea/
+
+# PHP / Kafka
+kafka/vendor/
+kafka/storage/*.json
+!kafka/storage/views.json
+kafka/logs/*.log
+
+# Project Data
+sample-data/*.csv
+data/
+tmp/
+
+# System
+.DS_Store
+Thumbs.db
+*.local
+.env

@@ -297,8 +297,11 @@ function CellValue({ value, col, schema }) {
   const num = typeof value === 'number' ? value : (is_numeric(value) ? parseFloat(value) : null)
   
   if (num !== null) {
+    // If it's a price column, ALWAYS show 2 decimals (e.g. 500 -> 500.00)
+    const isPrice = col.toLowerCase().includes('price') || fieldSchema?.type === 'float'
+    
     return <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent3)' }}>
-      {isFloat 
+      {isPrice 
         ? num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
         : num.toLocaleString()
       }

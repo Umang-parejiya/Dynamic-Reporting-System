@@ -13,6 +13,37 @@ const FILTER_TYPES = [
 const defaultRule = () => ({ field: '', type: 'text', value: '' })
 const defaultGroup = () => ({ type: 'nested', op: 'AND', children: [defaultRule()] })
 
+function is_numeric(n) {
+  return !isNaN(parseFloat(n)) && isFinite(n);
+}
+
+function QuickBtn({ label, onClick }) {
+  return (
+    <button 
+      className="btn btn-xs" 
+      onClick={onClick}
+      style={{ 
+        padding: '5px 12px', 
+        background: 'rgba(255,255,255,0.08)', 
+        border: '1px solid rgba(255,255,255,0.1)',
+        color: 'rgba(255,255,255,0.9)',
+        borderRadius: '6px',
+        fontSize: '11px',
+        transition: 'all 0.2s'
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.background = 'rgba(255,255,255,0.15)'
+        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.background = 'rgba(255,255,255,0.08)'
+        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'
+      }}
+    >
+      {label}
+    </button>
+  )
+}
 export default function FilterBuilder() {
   const {
     filters, clearFilters,
@@ -23,12 +54,16 @@ export default function FilterBuilder() {
   const setFilters = (newFilters) => useStore.setState({ filters: newFilters })
 
   const [expanded, setExpanded] = useState(true)
+  const [datePopoverOpen, setDatePopoverOpen] = useState(false)
   const [compareMode, setCompareMode] = useState(false)
+
+  const { dateField, setDateField } = useStore()
+  const dateFields = schema.filter(f => f.name.endsWith('_dt') || f.type === 'date')
 
   const handleRun = () => {
     if (compareMode && dateRange.from && dateRange.to) {
       useStore.getState().setDateCompare({
-        field: 'ingested_at_dt',
+        field: dateField,
         type: 'previous_period',
         from: dateRange.from,
         to: dateRange.to,
@@ -45,7 +80,7 @@ export default function FilterBuilder() {
   const activeCount = filters.length
 
   return (
-    <div className="card" style={{ flexShrink: 0 }}>
+    <div className="card" style={{ flexShrink: 0, position: 'relative', overflow: 'visible' }}>
       {/* Header */}
       <div
         style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 20px', cursor: 'pointer' }}
@@ -54,8 +89,108 @@ export default function FilterBuilder() {
         <ChevronDown size={16} style={{ color: 'var(--text2)', transform: expanded ? 'rotate(0)' : 'rotate(-90deg)', transition: 'transform .15s' }} />
         <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Query Builder</span>
         {activeCount > 0 && <span className="badge badge-accent">{activeCount} active</span>}
+        
         <div style={{ flex: 1 }} />
+        
         <div style={{ display: 'flex', gap: 8 }} onClick={e => e.stopPropagation()}>
+          {/* Date Range Popover Button */}
+          <div style={{ position: 'relative' }}>
+            <button 
+              className={`btn btn-sm ${dateRange.from ? 'btn-accent' : ''}`}
+              onClick={() => setDatePopoverOpen(!datePopoverOpen)}
+              style={{ gap: 6, borderRadius: '8px', padding: '0 12px', height: '34px' }}
+            >
+              <Calendar size={13} />
+              {dateRange.from ? `${dateRange.from} - ${dateRange.to}` : 'Date Range'}
+              <ChevronDown size={12} style={{ opacity: 0.5 }} />
+            </button>
+
+            {datePopoverOpen && (
+              <div style={{ 
+                position: 'absolute', top: 'calc(100% + 10px)', right: 0, zIndex: 1000,
+                width: 340, background: 'rgba(15, 23, 42, 0.95)', backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '16px', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', padding: '20px',
+                color: '#fff'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Date Range Filter</div>
+                  <button 
+                    className="btn btn-sm btn-primary" 
+                    onClick={() => {
+                      setDatePopoverOpen(false);
+                      query(1);
+                    }} 
+                    style={{ borderRadius: '6px', padding: '4px 14px' }}
+                  >
+                    Done
+                  </button>
+                </div>
+                
+                <div style={{ marginBottom: 18 }}>
+                  <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', marginBottom: 6, display: 'block' }}>Date Field</label>
+                  <select 
+                    className="input" 
+                    style={{ fontSize: '13px', height: '38px', width: '100%', padding: '0 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '8px' }}
+                    value={dateField}
+                    onChange={e => setDateField(e.target.value)}
+                  >
+                    <option value="ingested_at_dt">Ingested At (System)</option>
+                    {dateFields.map(f => (
+                      <option key={f.name} value={f.name} style={{ background: '#1e293b' }}>{f.label || f.name.replace('_dt', '')}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 18 }}>
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', marginBottom: 6, display: 'block' }}>From</label>
+                    <input type="date" className="input" style={{ width: '100%', fontSize: '13px', height: '38px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0 10px', borderRadius: '8px' }} value={dateRange.from} onChange={e => setDateRange({ ...dateRange, from: e.target.value })} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', marginBottom: 6, display: 'block' }}>To</label>
+                    <input type="date" className="input" style={{ width: '100%', fontSize: '13px', height: '38px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0 10px', borderRadius: '8px' }} value={dateRange.to} onChange={e => setDateRange({ ...dateRange, to: e.target.value })} />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 18 }}>
+                  <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', marginBottom: 10, display: 'block' }}>Quick Select</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    <QuickBtn label="Last 7 days" onClick={() => {
+                        const to = new Date()
+                        const from = new Date()
+                        from.setDate(to.getDate() - 7)
+                        setDateRange({ from: from.toISOString().split('T')[0], to: to.toISOString().split('T')[0] })
+                    }} />
+                    <QuickBtn label="Last 30 days" onClick={() => {
+                        const to = new Date()
+                        const from = new Date()
+                        from.setDate(to.getDate() - 30)
+                        setDateRange({ from: from.toISOString().split('T')[0], to: to.toISOString().split('T')[0] })
+                    }} />
+                    <QuickBtn label="Last 90 days" onClick={() => {
+                        const to = new Date()
+                        const from = new Date()
+                        from.setDate(to.getDate() - 90)
+                        setDateRange({ from: from.toISOString().split('T')[0], to: to.toISOString().split('T')[0] })
+                    }} />
+                    <QuickBtn label="This year" onClick={() => {
+                        const now = new Date()
+                        setDateRange({ from: `${now.getFullYear()}-01-01`, to: now.toISOString().split('T')[0] })
+                    }} />
+                  </div>
+                </div>
+
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 14 }}>
+                   <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '12px', color: 'rgba(255,255,255,0.8)', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={compareMode} onChange={e => setCompareMode(e.target.checked)} style={{ accentColor: 'var(--accent)', width: 14, height: 14 }} />
+                    <GitMerge size={14} /> Compare Mode
+                  </label>
+                </div>
+              </div>
+            )}
+          </div>
+
           <button className="btn btn-sm" onClick={addRootRule}><Plus size={13} /> Add Rule</button>
           <button className="btn btn-sm" onClick={addRootGroup}><FolderPlus size={13} /> Add Group</button>
           {filters.length > 0 && <button className="btn btn-sm btn-danger" onClick={clearFilters}>Clear</button>}
@@ -65,25 +200,20 @@ export default function FilterBuilder() {
 
       {expanded && (
         <div style={{ padding: '0 20px 14px' }}>
-          {/* Date Range Row */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-            <Calendar size={14} style={{ color: 'var(--text3)', flexShrink: 0 }} />
-            <span style={{ fontSize: 12, color: 'var(--text2)', flexShrink: 0 }}>Global Date Filter</span>
-            <input type="date" className="input" style={{ width: 140, fontSize: 12 }} value={dateRange.from} onChange={e => setDateRange({ ...dateRange, from: e.target.value })} />
-            <span style={{ color: 'var(--text3)', fontSize: 12 }}>to</span>
-            <input type="date" className="input" style={{ width: 140, fontSize: 12 }} value={dateRange.to} onChange={e => setDateRange({ ...dateRange, to: e.target.value })} />
-            
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text2)', cursor: 'pointer', marginLeft: 10 }}>
-              <input type="checkbox" checked={compareMode} onChange={e => setCompareMode(e.target.checked)} style={{ accentColor: 'var(--accent)' }} />
-              <GitMerge size={13} /> Compare
-            </label>
-            {compareMode && (
-              <select className="input" style={{ width: 160, fontSize: 12 }} value={dateCompare?.type || 'previous_period'} onChange={e => setDateCompare({ ...(dateCompare || {}), type: e.target.value })}>
-                <option value="previous_period">vs Previous Period</option>
-                <option value="same_period_last_year">vs Last Year</option>
-              </select>
-            )}
-          </div>
+          {/* Compare Options if enabled in popover but not currently shown? 
+              Actually let's keep it simple and handle compare type in the popover if needed, 
+              but for now let's just show it below if compareMode is on to make it visible.
+          */}
+          {compareMode && (
+             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, padding: '8px 12px', background: 'rgba(108,99,255,0.05)', borderRadius: 8, border: '1px dashed var(--accent)' }}>
+                <GitMerge size={14} style={{ color: 'var(--accent)' }} />
+                <span style={{ fontSize: 12, color: 'var(--text2)' }}>Compare current range against:</span>
+                <select className="input" style={{ width: 160, fontSize: 11, height: 28 }} value={dateCompare?.type || 'previous_period'} onChange={e => setDateCompare({ ...(dateCompare || {}), type: e.target.value })}>
+                  <option value="previous_period">Previous Period</option>
+                  <option value="same_period_last_year">Same Period Last Year</option>
+                </select>
+             </div>
+          )}
 
           {/* Root Group (Implicit AND over all top-level filters) */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -218,9 +348,9 @@ function FilterNode({ node, isRoot, idx, schema, facets, fetchFacets, updateNode
         filter={node}
         schema={schema}
         facetOptions={facetOptions}
-        onChange={(val) => updateNode({ ...node, value: val })}
-        onMinChange={(min) => updateNode({ ...node, min })}
-        onMaxChange={(max) => updateNode({ ...node, max })}
+        onChange={(val, operator) => updateNode({ ...node, value: val, operator: operator || '=' })}
+        onMinChange={(min) => updateNode({ ...node, min, operator: 'range' })}
+        onMaxChange={(max) => updateNode({ ...node, max, operator: 'range' })}
         onFromChange={(from) => updateNode({ ...node, from })}
         onToChange={(to) => updateNode({ ...node, to })}
       />
@@ -234,13 +364,39 @@ function FilterValue({ filter, schema, facetOptions, onChange, onMinChange, onMa
   const inputStyle = { fontSize: 12, width: '100%' }
   const listId = `facets-${filter.field}`
 
+  const isNumeric = filter.type === 'range'
+  const operators = ['=', '<', '>', '<=', '>=', 'range']
+  const operator = filter.operator || '='
+
   switch (filter.type) {
     case 'range':
       return (
         <div style={{ display: 'flex', gap: 6, flex: 1 }}>
-          <input className="input" type="number" placeholder="Min" style={inputStyle} value={filter.min || ''} onChange={e => onMinChange(e.target.value)} />
-          <span style={{ color: 'var(--text3)', alignSelf: 'center', fontSize: 12 }}>–</span>
-          <input className="input" type="number" placeholder="Max" style={inputStyle} value={filter.max || ''} onChange={e => onMaxChange(e.target.value)} />
+          <select 
+            className="input" 
+            style={{ width: 100, fontSize: 12 }} 
+            value={operator} 
+            onChange={e => onChange(filter.value, e.target.value)}
+          >
+            {operators.map(op => <option key={op} value={op}>{op}</option>)}
+          </select>
+          
+          {operator === 'range' ? (
+            <div style={{ display: 'flex', gap: 6, flex: 1 }}>
+              <input className="input" type="number" placeholder="Min" style={inputStyle} value={filter.min || ''} onChange={e => onMinChange(e.target.value)} />
+              <span style={{ color: 'var(--text3)', alignSelf: 'center', fontSize: 12 }}>–</span>
+              <input className="input" type="number" placeholder="Max" style={inputStyle} value={filter.max || ''} onChange={e => onMaxChange(e.target.value)} />
+            </div>
+          ) : (
+            <input 
+              className="input" 
+              type="number" 
+              placeholder="Value" 
+              style={inputStyle} 
+              value={filter.value || ''} 
+              onChange={e => onChange(e.target.value, operator)} 
+            />
+          )}
         </div>
       )
     case 'date_range':

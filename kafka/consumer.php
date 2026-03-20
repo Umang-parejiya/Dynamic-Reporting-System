@@ -82,8 +82,24 @@ function getSolrSuffix(mixed $value): string
     if (is_int($value))   return '_i';
     if (is_float($value)) return '_f';
     if (is_bool($value))  return '_b';
-    if (is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}T/', $value)) return '_dt';
+    if (is_string($value)) {
+        if (preg_match('/^\d{4}-\d{2}-\d{2}T/', $value)) return '_dt';
+        // Check for common date formats: MM/DD/YYYY or DD/MM/YYYY
+        if (preg_match('/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/', $value)) {
+            $ts = strtotime(str_replace('/', '-', $value));
+            if ($ts) return '_dt';
+        }
+    }
     return '_s';
+}
+
+function formatSolrValue(mixed $value, string $suffix): mixed
+{
+    if ($suffix === '_dt' && is_string($value)) {
+        $ts = strtotime(str_replace('/', '-', $value));
+        if ($ts) return date('Y-m-d\TH:i:s\Z', $ts);
+    }
+    return $value;
 }
 
 function sanitizeKey(string $key): string
@@ -116,7 +132,7 @@ function buildSolrDoc(array $data): array
         }
 
         $suffix = getSolrSuffix($value);
-        $doc[$cleanKey . $suffix] = $cleanValue;
+        $doc[$cleanKey . $suffix] = formatSolrValue($cleanValue, $suffix);
     }
 
     // Build stable ID for deduplication
