@@ -196,16 +196,17 @@ export default function DataTable() {
                   onMouseLeave={e => e.currentTarget.style.background = ri % 2 === 0 ? 'transparent' : 'rgba(255,255,255,.015)'}
                 >
                     {displayCols.map(col => {
-                      // Ultra-Smart lookup: strip any existing suffix and try all variations
-                      const baseName = col.replace(/(_s|_i|_f|_b|_dt|_txt)$/, '')
-                      const variants = [baseName, baseName + '_f', baseName + '_i', baseName + '_s', baseName + '_dt', baseName + '_b', baseName + '_txt']
+                      // Ultra-Smart Case-Insensitive Lookup
+                      const base = col.replace(/(_s|_i|_f|_b|_dt|_txt)$/i, '').toLowerCase()
                       
-                      let val = undefined
-                      for (const v of variants) {
-                        if (row[v] !== undefined && row[v] !== null) {
-                          val = row[v]
-                          break
-                        }
+                      let val = row[col] // Try exact match first
+                      if (val === undefined || val === null) {
+                        // Fallback: search all row keys for a match
+                        const bestKey = Object.keys(row).find(k => {
+                          const kBase = k.replace(/(_s|_i|_f|_b|_dt|_txt)$/i, '').toLowerCase()
+                          return kBase === base
+                        })
+                        if (bestKey) val = row[bestKey]
                       }
                       
                       return (
@@ -276,8 +277,12 @@ export default function DataTable() {
 function CellValue({ value, col, schema }) {
   if (value == null) return <span style={{ color: 'var(--text3)', fontStyle: 'italic' }}>—</span>
   
-  const fieldSchema = schema.find(s => s.name === col || s.name === col + '_f' || s.name === col + '_i' || s.name === col + '_s')
-  const isFloat = fieldSchema?.type === 'float' || col.toLowerCase().includes('price')
+  const base = col.replace(/(_s|_i|_f|_b|_dt|_txt)$/i, '').toLowerCase()
+  const fieldSchema = schema.find(s => {
+    const sBase = s.name.replace(/(_s|_i|_f|_b|_dt|_txt)$/i, '').toLowerCase()
+    return s.name === col || sBase === base
+  })
+  const isFloat = fieldSchema?.type === 'float' || col.toLowerCase().includes('price') || base.includes('price')
 
   if (typeof value === 'boolean') {
     return (

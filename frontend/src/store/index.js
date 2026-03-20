@@ -130,7 +130,12 @@ export const useStore = create((set, get) => ({
       rows: s.rows,
       cursor: s.cursorHistory[page - 1] || '*',
       sort: s.sort,
-      fields: s.selectedColumns.length ? s.selectedColumns : ['*'],
+      fields: s.selectedColumns.length 
+        ? [...new Set(s.selectedColumns.flatMap(c => {
+            const base = c.replace(/(_s|_i|_f|_b|_dt|_txt)$/i, '')
+            return [c, base, base + '_s', base + '_i', base + '_f', base + '_dt', base + '_b', base + '_txt']
+          }))].filter(f => f)
+        : ['*'],
       filters: activeFilters,
       dateRange: s.dateRange,
       dateField: s.dateField,
