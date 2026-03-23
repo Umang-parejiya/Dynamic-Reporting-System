@@ -2,14 +2,15 @@ import React, { useState } from 'react'
 import { useStore } from '../store'
 import {
   Menu, Search, RefreshCw, Download, Table2, BarChart2,
-  BookMarked, Upload, ChevronDown
+  BookMarked, Upload, ChevronDown, User, LogOut
 } from 'lucide-react'
 
 export default function TopBar() {
   const {
     query, loading, total, activeTab, setActiveTab,
     setSidebarOpen, sidebarOpen, rows, setRows,
-    results, selectedColumns, schema
+    results, selectedColumns, schema,
+    user, logout
   } = useStore()
 
   const [showExport, setShowExport] = useState(false)
@@ -43,21 +44,29 @@ export default function TopBar() {
 
   return (
     <div className="top-bar-container" style={{
-      display: 'flex', alignItems: 'center', gap: 10,
-      padding: '12px 24px',
+      display: 'flex', alignItems: 'center', gap: 16,
+      padding: '12px 20px',
+      background: 'var(--bg2)',
+      backdropFilter: 'var(--glass)',
+      borderBottom: '1px solid var(--border)',
       flexShrink: 0,
-      zIndex: 5,
     }}>
       {/* Sidebar Toggle */}
-      <button className="btn btn-icon" onClick={() => setSidebarOpen(!sidebarOpen)} data-tip="Toggle sidebar">
-        <Menu size={16} />
+      <button 
+        className="btn btn-icon" 
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        style={{ width: 36, height: 36, padding: 0, border: 'none' }}
+      >
+        <Menu size={18} />
       </button>
 
-      {/* Title */}
-      <div style={{ marginRight: 8 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Report Explorer</div>
-        <div style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--font-mono)' }}>
-          {total.toLocaleString()} records
+      {/* Title Section */}
+      <div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', fontFamily: 'var(--font-display)' }}>
+          {activeTab === 'table' ? 'Data Explorer' : activeTab === 'charts' ? 'Visual Analytics' : 'Audit Intelligence'}
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 500 }}>
+          Analyzing {total.toLocaleString()} unique records
         </div>
       </div>
 
@@ -132,7 +141,7 @@ export default function TopBar() {
             position: 'absolute', right: 0, top: 'calc(100% + 6px)',
             background: 'var(--bg2)', border: '1px solid var(--border2)',
             borderRadius: 8, overflow: 'hidden', zIndex: 100, minWidth: 140,
-            boxShadow: 'var(--shadow)',
+            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
           }}>
             <button
               onClick={exportCSV}
@@ -149,6 +158,40 @@ export default function TopBar() {
             </button>
           </div>
         )}
+      </div>
+
+      {/* User Profile Badge */}
+      <div style={{ 
+        display: 'flex', alignItems: 'center', gap: 10, 
+        padding: '4px 4px 4px 12px', background: 'var(--bg3)', 
+        borderRadius: '20px', border: '1px solid var(--border2)',
+        marginLeft: 8
+      }}>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, lineHeight: 1 }}>{user?.name}</div>
+          <div style={{ fontSize: 9, color: 'var(--accent)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {user?.role}
+          </div>
+        </div>
+        <div style={{ 
+          width: 28, height: 28, borderRadius: '50%', background: 'var(--accent)', 
+          display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white'
+        }}>
+          <User size={14} />
+        </div>
+        <button 
+          onClick={logout}
+          style={{ 
+            background: 'rgba(239, 68, 68, 0.1)', border: 'none', cursor: 'pointer',
+            width: 28, height: 28, borderRadius: '50%', display: 'flex', 
+            alignItems: 'center', justifyContent: 'center', color: '#EF4444',
+            transition: 'all 0.2s'
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
+        >
+          <LogOut size={14} />
+        </button>
       </div>
     </div>
   )

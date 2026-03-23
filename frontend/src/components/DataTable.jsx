@@ -135,47 +135,47 @@ export default function DataTable() {
                 <tr style={{ position: 'sticky', top: 0, zIndex: 6, background: 'var(--bg3)', borderBottom: '1px solid var(--border)' }}>
                   {topGroups.map((g, i) => (
                     <th key={Math.random()} colSpan={g.span} style={{
-                      padding: '8px 12px', textAlign: 'center', fontWeight: 600,
+                      padding: '10px 12px', textAlign: 'center', fontWeight: 700,
+                      fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em',
                       color: g.label ? 'var(--text)' : 'transparent',
-                      borderRight: '1px solid var(--border2)',
+                      borderRight: '1px solid var(--border)',
+                      color: g.label ? '#475569' : 'transparent',
+                      borderRight: '1px solid #e2e8f0',
                     }}>
                       {g.label || ' '}
                     </th>
                   ))}
                 </tr>
               )}
-              <tr style={{ position: 'sticky', top: hasGroups ? 33 : 0, zIndex: 5 }}>
+              <tr style={{ position: 'sticky', top: hasGroups ? 35 : 0, zIndex: 5, background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
                 {displayCols.map(col => (
                   <th
                     key={col}
                     style={{
-                      padding: '10px 12px',
-                      background: 'var(--bg2)',
-                      borderBottom: '2px solid var(--border2)',
-                      borderRight: '1px solid var(--border2)',
+                      padding: '12px 12px',
                       textAlign: 'left',
-                      fontWeight: 600,
-                      color: sort.startsWith(col) ? 'var(--accent)' : 'var(--text2)',
-                      userSelect: 'none',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: '#475569',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
                       position: 'relative',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
+                      width: columnWidths[col] || 140,
+                      userSelect: 'none',
                     }}
                   >
-                    <div
-                      style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}
-                      onClick={() => handleSort(col)}
-                    >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }} onClick={() => handleSort(col)}>
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{getLabel(col)}</span>
-                      {getSortIcon(col)}
+                      {sort.startsWith(col) && (
+                        sort.endsWith('asc') ? <ChevronUp size={12} /> : <ChevronDown size={12} />
+                      )}
                     </div>
                     {/* Resize handle */}
                     <div
-                      onMouseDown={e => startResize(e, col)}
+                      onMouseDown={e => { e.preventDefault(); e.stopPropagation(); setResizing(col) }}
                       style={{
                         position: 'absolute', right: 0, top: 0, bottom: 0,
-                        width: 6, cursor: 'col-resize',
+                        width: 4, cursor: 'col-resize',
                         background: resizing === col ? 'var(--accent)' : 'transparent',
                       }}
                     />
@@ -188,24 +188,17 @@ export default function DataTable() {
                 <tr
                   key={row.id || ri}
                   style={{
-                    borderBottom: '1px solid var(--border)',
-                    background: ri % 2 === 0 ? 'transparent' : 'rgba(255,255,255,.015)',
-                    transition: 'background .1s',
+                    borderBottom: '1px solid #f1f5f9',
+                    background: ri % 2 === 0 ? '#fff' : '#f8fafc',
                   }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(108,99,255,.07)'}
-                  onMouseLeave={e => e.currentTarget.style.background = ri % 2 === 0 ? 'transparent' : 'rgba(255,255,255,.015)'}
+                  onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
+                  onMouseLeave={e => e.currentTarget.style.background = ri % 2 === 0 ? '#fff' : '#f8fafc'}
                 >
                     {displayCols.map(col => {
-                      // Ultra-Smart Case-Insensitive Lookup
                       const base = col.replace(/(_s|_i|_f|_b|_dt|_txt)$/i, '').toLowerCase()
-                      
-                      let val = row[col] // Try exact match first
+                      let val = row[col]
                       if (val === undefined || val === null) {
-                        // Fallback: search all row keys for a match
-                        const bestKey = Object.keys(row).find(k => {
-                          const kBase = k.replace(/(_s|_i|_f|_b|_dt|_txt)$/i, '').toLowerCase()
-                          return kBase === base
-                        })
+                        const bestKey = Object.keys(row).find(k => k.replace(/(_s|_i|_f|_b|_dt|_txt)$/i, '').toLowerCase() === base)
                         if (bestKey) val = row[bestKey]
                       }
                       
@@ -213,16 +206,16 @@ export default function DataTable() {
                         <td
                           key={col}
                           style={{
-                            padding: '8px 12px',
+                            padding: '10px 12px',
+                            fontSize: 12,
+                            color: val == null ? '#94a3b8' : '#1e293b',
+                            maxWidth: columnWidths[col] || 140,
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
-                            color: val == null ? 'var(--text3)' : 'var(--text)',
-                            maxWidth: columnWidths[col] || 140,
                           }}
-                          title={String(val ?? '')}
                         >
-                          <CellValue value={val} col={col} schema={schema} />
+                          <CellValue value={val} col={col} schema={schema} isLight={true} />
                         </td>
                       )
                     })}
@@ -273,9 +266,8 @@ export default function DataTable() {
     </div>
   )
 }
-
-function CellValue({ value, col, schema }) {
-  if (value == null) return <span style={{ color: 'var(--text3)', fontStyle: 'italic' }}>—</span>
+function CellValue({ value, col, schema, isLight }) {
+  if (value == null) return <span style={{ color: isLight ? '#94a3b8' : 'var(--text3)', fontStyle: 'italic' }}>—</span>
   
   const base = col.replace(/(_s|_i|_f|_b|_dt|_txt)$/i, '').toLowerCase()
   const fieldSchema = schema.find(s => {
@@ -286,26 +278,29 @@ function CellValue({ value, col, schema }) {
 
   if (typeof value === 'boolean') {
     return (
-      <span className={`badge ${value ? 'badge-success' : 'badge-error'}`}>
-        {value ? 'true' : 'false'}
+      <span style={{ 
+        padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700,
+        background: value ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+        color: value ? '#059669' : '#dc2626',
+        border: `1px solid ${value ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`
+      }}>
+        {value ? 'TRUE' : 'FALSE'}
       </span>
     )
   }
-  
+
   if (col.endsWith('_dt') || (typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}T/))) {
-    return <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text2)' }}>
+    return <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: isLight ? '#475569' : 'var(--text2)' }}>
       {new Date(value).toLocaleDateString()}
     </span>
   }
 
-  // Handle numbers and numeric strings
-  const num = typeof value === 'number' ? value : (is_numeric(value) ? parseFloat(value) : null)
-  
-  if (num !== null) {
+  if (is_numeric(value)) {
+    const num = parseFloat(value)
     // If it's a price column, ALWAYS show 2 decimals (e.g. 500 -> 500.00)
     const isPrice = col.toLowerCase().includes('price') || fieldSchema?.type === 'float'
     
-    return <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent3)' }}>
+    return <span style={{ fontFamily: 'var(--font-mono)', color: isLight ? '#0369a1' : 'var(--accent3)', fontWeight: 600 }}>
       {isPrice 
         ? num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
         : num.toLocaleString()
@@ -313,7 +308,7 @@ function CellValue({ value, col, schema }) {
     </span>
   }
   
-  return <span>{String(value)}</span>
+  return <span style={{ color: isLight ? '#1e293b' : 'var(--text)' }}>{String(value)}</span>
 }
 
 function is_numeric(n) {
@@ -323,40 +318,41 @@ function is_numeric(n) {
 function CompareView({ compareResult, displayCols, getLabel }) {
   const { current, compare, difference } = compareResult
   const pct = difference?.percentage
-  const pctColor = pct > 0 ? 'var(--success)' : pct < 0 ? 'var(--error)' : 'var(--text2)'
+  const pctColor = pct > 0 ? '#059669' : pct < 0 ? '#dc2626' : '#64748b'
 
   return (
-    <div style={{ overflow: 'auto', height: '100%' }}>
+    <div style={{ overflow: 'auto', height: '100%', background: '#f8fafc' }}>
       {/* Summary Banner */}
       <div style={{
         display: 'flex', gap: 16, padding: '14px 20px',
-        background: 'var(--bg3)', borderBottom: '1px solid var(--border)',
+        background: '#fff', borderBottom: '1px solid #e2e8f0',
       }}>
-        <StatCard label="Current Period" value={current.total.toLocaleString()} color="var(--accent)" />
-        <StatCard label="Compare Period" value={compare.total.toLocaleString()} color="var(--text2)" />
+        <StatCard label="Current Period" value={current.total.toLocaleString()} color="#5d5fef" isLight={true} />
+        <StatCard label="Compare Period" value={compare.total.toLocaleString()} color="#64748b" isLight={true} />
         <StatCard
           label="Change"
           value={`${pct > 0 ? '+' : ''}${pct ?? '—'}%`}
           sub={`${difference.absolute > 0 ? '+' : ''}${difference.absolute} records`}
           color={pctColor}
+          isLight={true}
         />
       </div>
 
       {/* Side by side tables */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: 'var(--border)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: '#e2e8f0' }}>
         {[
-          { label: 'Current Period', docs: current.docs, accent: 'var(--accent)' },
-          { label: 'Compare Period', docs: compare.docs, accent: 'var(--text2)' },
+          { label: 'Current Period', docs: current.docs, accent: '#5d5fef' },
+          { label: 'Compare Period', docs: compare.docs, accent: '#64748b' },
         ].map(({ label, docs, accent }) => (
-          <div key={label} style={{ background: 'var(--bg)', overflow: 'auto' }}>
-            <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)', fontSize: 12, fontWeight: 600, color: accent }}>
+          <div key={label} style={{ background: '#fff', overflow: 'auto' }}>
+            <div style={{ padding: '8px 16px', borderBottom: '1px solid #e2e8f0', fontSize: 12, fontWeight: 700, color: accent, background: '#f8fafc' }}>
               {label}
             </div>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
-                <tr>
+                <tr style={{ background: '#f8fafc' }}>
                   {displayCols.slice(0, 4).map(col => (
-                    <th key={col} style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--text2)', fontWeight: 600, borderBottom: '1px solid var(--border)' }}>
+                    <th key={col} style={{ padding: '8px 12px', textAlign: 'left', color: '#64748b', fontWeight: 700, borderBottom: '1px solid #e2e8f0', fontSize: 11, textTransform: 'uppercase' }}>
                       {getLabel(col)}
                     </th>
                   ))}
@@ -364,9 +360,9 @@ function CompareView({ compareResult, displayCols, getLabel }) {
               </thead>
               <tbody>
                 {docs.map((row, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
+                  <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
                     {displayCols.slice(0, 4).map(col => (
-                      <td key={col} style={{ padding: '7px 12px', color: 'var(--text)' }}>
+                      <td key={col} style={{ padding: '7px 12px', color: '#1e293b' }}>
                         {row[col] ?? '—'}
                       </td>
                     ))}
@@ -381,24 +377,24 @@ function CompareView({ compareResult, displayCols, getLabel }) {
   )
 }
 
-function StatCard({ label, value, sub, color }) {
+function StatCard({ label, value, sub, color, isLight }) {
   return (
-    <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 16px', minWidth: 140 }}>
-      <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>{label}</div>
+    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 16px', minWidth: 140, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+      <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4, fontWeight: 600 }}>{label}</div>
       <div style={{ fontSize: 22, fontWeight: 700, color, fontFamily: 'var(--font-mono)' }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>{sub}</div>}
+      {sub && <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{sub}</div>}
     </div>
   )
 }
 
 function LoadingSkeleton({ cols }) {
   return (
-    <div style={{ padding: '0 0' }}>
+    <div style={{ background: '#fff' }}>
       {[...Array(8)].map((_, i) => (
         <div key={i} style={{
           display: 'flex', gap: 1,
-          borderBottom: '1px solid var(--border)',
-          padding: '10px 12px',
+          borderBottom: '1px solid #f1f5f9',
+          padding: '12px 12px',
           opacity: 1 - i * 0.1,
         }}>
           {[...Array(cols)].map((_, j) => (

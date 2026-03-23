@@ -24,20 +24,21 @@ function QuickBtn({ label, onClick }) {
       onClick={onClick}
       style={{ 
         padding: '5px 12px', 
-        background: 'rgba(255,255,255,0.08)', 
-        border: '1px solid rgba(255,255,255,0.1)',
-        color: 'rgba(255,255,255,0.9)',
+        background: '#f1f5f9', 
+        border: '1px solid #e2e8f0',
+        color: '#475569',
         borderRadius: '6px',
         fontSize: '11px',
-        transition: 'all 0.2s'
+        transition: 'all 0.2s',
+        fontWeight: 600
       }}
       onMouseEnter={e => {
-        e.currentTarget.style.background = 'rgba(255,255,255,0.15)'
-        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'
+        e.currentTarget.style.background = '#e2e8f0'
+        e.currentTarget.style.borderColor = '#cbd5e1'
       }}
       onMouseLeave={e => {
-        e.currentTarget.style.background = 'rgba(255,255,255,0.08)'
-        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'
+        e.currentTarget.style.background = '#f1f5f9'
+        e.currentTarget.style.borderColor = '#e2e8f0'
       }}
     >
       {label}
@@ -108,10 +109,10 @@ export default function FilterBuilder() {
             {datePopoverOpen && (
               <div style={{ 
                 position: 'absolute', top: 'calc(100% + 10px)', right: 0, zIndex: 1000,
-                width: 340, background: 'rgba(15, 23, 42, 0.95)', backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: '16px', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', padding: '20px',
-                color: '#fff'
+                width: 320, background: 'var(--bg2)', backdropFilter: 'var(--glass)',
+                border: '1px solid var(--border2)',
+                borderRadius: '16px', boxShadow: 'var(--shadow)', padding: '20px',
+                color: 'var(--text)'
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
                   <div style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Date Range Filter</div>
@@ -128,33 +129,33 @@ export default function FilterBuilder() {
                 </div>
                 
                 <div style={{ marginBottom: 18 }}>
-                  <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', marginBottom: 6, display: 'block' }}>Date Field</label>
+                  <label style={{ fontSize: '11px', color: '#64748b', marginBottom: 6, display: 'block', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date Field</label>
                   <select 
                     className="input" 
-                    style={{ fontSize: '13px', height: '38px', width: '100%', padding: '0 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '8px' }}
-                    value={dateField}
+                    style={{ width: '100%', fontSize: '12px', height: '36px', color: '#1e293b', background: '#f8fafc', borderColor: '#e2e8f0' }} 
+                    value={dateField} 
                     onChange={e => setDateField(e.target.value)}
                   >
                     <option value="ingested_at_dt">Ingested At (System)</option>
                     {dateFields.map(f => (
-                      <option key={f.name} value={f.name} style={{ background: '#1e293b' }}>{f.label || f.name.replace('_dt', '')}</option>
+                      <option key={f.name} value={f.name}>{f.label || f.name}</option>
                     ))}
                   </select>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 18 }}>
                   <div>
-                    <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', marginBottom: 6, display: 'block' }}>From</label>
-                    <input type="date" className="input" style={{ width: '100%', fontSize: '13px', height: '38px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0 10px', borderRadius: '8px' }} value={dateRange.from} onChange={e => setDateRange({ ...dateRange, from: e.target.value })} />
+                    <label style={{ fontSize: '11px', color: '#64748b', marginBottom: 6, display: 'block', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>From</label>
+                    <input type="date" className="input" style={{ width: '100%', fontSize: '12px', height: '36px', color: '#1e293b', background: '#f8fafc', borderColor: '#e2e8f0' }} value={dateRange.from} onChange={e => setDateRange({ ...dateRange, from: e.target.value })} />
                   </div>
                   <div>
-                    <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', marginBottom: 6, display: 'block' }}>To</label>
-                    <input type="date" className="input" style={{ width: '100%', fontSize: '13px', height: '38px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0 10px', borderRadius: '8px' }} value={dateRange.to} onChange={e => setDateRange({ ...dateRange, to: e.target.value })} />
+                    <label style={{ fontSize: '11px', color: '#64748b', marginBottom: 6, display: 'block', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>To</label>
+                    <input type="date" className="input" style={{ width: '100%', fontSize: '12px', height: '36px', color: '#1e293b', background: '#f8fafc', borderColor: '#e2e8f0' }} value={dateRange.to} onChange={e => setDateRange({ ...dateRange, to: e.target.value })} />
                   </div>
                 </div>
 
                 <div style={{ marginBottom: 18 }}>
-                  <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', marginBottom: 10, display: 'block' }}>Quick Select</label>
+                  <label style={{ fontSize: '11px', color: '#64748b', marginBottom: 10, display: 'block', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Quick Select</label>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                     <QuickBtn label="Last 7 days" onClick={() => {
                         const to = new Date()
@@ -181,10 +182,10 @@ export default function FilterBuilder() {
                   </div>
                 </div>
 
-                <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 14 }}>
-                   <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '12px', color: 'rgba(255,255,255,0.8)', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={compareMode} onChange={e => setCompareMode(e.target.checked)} style={{ accentColor: 'var(--accent)', width: 14, height: 14 }} />
-                    <GitMerge size={14} /> Compare Mode
+                <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 14 }}>
+                   <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '12px', color: '#475569', cursor: 'pointer', fontWeight: 600 }}>
+                    <input type="checkbox" checked={compareMode} onChange={e => setCompareMode(e.target.checked)} style={{ accentColor: 'var(--accent)', width: 16, height: 16 }} />
+                    <GitMerge size={14} style={{ color: 'var(--accent)' }} /> Compare Mode
                   </label>
                 </div>
               </div>

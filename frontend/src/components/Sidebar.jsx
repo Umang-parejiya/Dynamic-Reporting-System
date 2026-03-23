@@ -1,11 +1,12 @@
 import React, { useState, useCallback } from 'react'
 import { useStore } from '../store'
-import { Eye, EyeOff, GripVertical, ChevronDown, ChevronRight } from 'lucide-react'
+import { Eye, EyeOff, GripVertical, ChevronDown, ChevronRight, Activity, BarChart3, Table2 } from 'lucide-react'
 
 export default function Sidebar() {
   const { 
     schema, selectedColumns, setSelectedColumns, columnOrder, setColumnOrder,
-    sources, selectedSource, fetchSchema 
+    sources, selectedSource, fetchSchema,
+    user, activeTab, setActiveTab
   } = useStore()
   const [search, setSearch] = useState('')
   const [collapsed, setCollapsed] = useState({})
@@ -69,21 +70,60 @@ export default function Sidebar() {
   }
 
   const typeColors = {
-    string: 'var(--text)',
+    string: 'var(--text2)',
     integer: 'var(--accent)',
-    float: 'var(--accent)',
-    boolean: 'var(--text3)',
-    date: 'var(--border2)',
+    float: '#F59E0B', // Amber for numbers
+    boolean: 'var(--accent2)', // Pink
+    date: 'var(--accent3)', // Emerald
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+    <div className="sidebar" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Logo Section */}
+      <div className="sidebar-logo">
+        <div className="logo-icon">RS</div>
+        <div className="logo-text">Reporting<span>System</span></div>
+      </div>
+
+      {/* Navigation Tabs */}
+      <div style={{ padding: '8px 12px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {[
+          { id: 'table', icon: <Table2 size={16} />, label: 'Data Explorer' },
+          { id: 'charts', icon: <BarChart3 size={16} />, label: 'Visual Analytics' },
+          { id: 'logs', icon: <Activity size={16} />, label: 'Audit Logs', admin: true },
+        ].map(tab => {
+          if (tab.admin && user?.role !== 'admin') return null
+          const active = activeTab === tab.id
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '8px 10px', borderRadius: '8px',
+                border: 'none', cursor: 'pointer', fontSize: '12px',
+                fontWeight: active ? 600 : 500,
+                background: active ? 'var(--accent)' : 'transparent',
+                color: active ? '#fff' : 'var(--text2)',
+                transition: 'all 0.2s',
+                textAlign: 'left',
+                width: '100%'
+              }}
+              onMouseEnter={e => !active && (e.currentTarget.style.background = 'var(--bg3)')}
+              onMouseLeave={e => !active && (e.currentTarget.style.background = 'transparent')}
+            >
+              {tab.icon} <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tab.label}</span>
+            </button>
+          )
+        })}
+      </div>
+
       {/* Source Selector */}
-      <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid var(--border)' }}>
-        <div style={{ fontSize: '11px', color: 'var(--text3)', marginBottom: '6px', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Source CSV</div>
+      <div style={{ padding: '12px 12px 8px', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ fontSize: '10px', color: 'var(--text3)', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Source</div>
         <select 
           className="input" 
-          style={{ fontSize: '13px', height: '38px', width: '100%', cursor: 'pointer', borderRadius: '6px', border: '1px solid var(--border)' }}
+          style={{ fontSize: '12px', height: '34px', width: '100%', cursor: 'pointer', borderRadius: '6px' }}
           value={selectedSource || ''}
           onChange={handleSourceChange}
         >
@@ -93,27 +133,30 @@ export default function Sidebar() {
       </div>
 
       {/* Search */}
-      <div style={{ padding: '16px', borderBottom: '1px solid var(--border)' }}>
+      <div style={{ padding: '12px', borderBottom: '1px solid var(--border)' }}>
         <input
           className="input"
-          placeholder="Search columns..."
+          placeholder="Filter..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          style={{ fontSize: '12px' }}
+          style={{ fontSize: '11px', padding: '6px 10px', width: '100%', height: '32px' }}
         />
       </div>
 
       {/* Header actions */}
-      <div style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '.5px' }}>
-          Columns ({selectedColumns.length}/{schema.length})
+      <div style={{ padding: '12px 12px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: '9px', fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Cols ({selectedColumns.length}/{schema.length})
         </span>
         <button
-          className="btn btn-sm"
           onClick={toggleAll}
-          style={{ fontSize: '11px', padding: '2px 8px' }}
+          style={{
+            fontSize: '9px', fontWeight: 700, color: 'var(--accent)',
+            background: 'none', border: 'none', cursor: 'pointer',
+            padding: '2px'
+          }}
         >
-          {selectedColumns.length === schema.length ? 'None' : 'All'}
+          {selectedColumns.length === schema.length ? 'NONE' : 'ALL'}
         </button>
       </div>
 

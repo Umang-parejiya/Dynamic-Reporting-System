@@ -2,7 +2,7 @@
 
 /**
  * Dynamic Reporting API
- * Routes: /api/query, /api/schema, /api/facets, /api/views, /api/produce
+ * Routes: /api/query, /api/schema, /api/facets, /api/views, /api/produce, /api/login, /api/user, /api/reports, /api/logs
  */
 
 require_once __DIR__ . '/../vendor/autoload.php';
@@ -46,6 +46,12 @@ switch (true) {
     case $uri === '/column-config' && $method === 'GET': handleGetColumnConfig(); break;
     case $uri === '/column-config' && $method === 'POST': handleSaveColumnConfig(); break;
     case $uri === '/sources' && $method === 'GET': handleGetSources($solrUrl); break;
+    case $uri === '/login'  && $method === 'POST': handleLogin(); break;
+    case $uri === '/user'   && $method === 'GET':  handleGetUser(); break;
+    case $uri === '/reports' && $method === 'GET':  handleGetReports(); break;
+    case $uri === '/reports' && $method === 'POST': handleSaveReport(); break;
+    case $uri === '/reports' && $method === 'DELETE': handleDeleteReport(); break;
+    case $uri === '/logs'    && $method === 'GET':  handleGetLogs(); break;
     case $uri === '/health' && $method === 'GET':  json(['status' => 'ok', 'time' => date('c')]); break;
     default:
         http_response_code(404);
@@ -273,17 +279,18 @@ function handleFacets(string $solrUrl): void
 
 function handleGetViews(): void
 {
+    $user = guard();
     $viewsFile = __DIR__ . '/../storage/views.json';
-    if (!file_exists($viewsFile)) {
-        json(['views' => []]);
-        return;
-    }
     $views = json_decode(file_get_contents($viewsFile), true) ?? [];
-    json(['views' => $views]);
+    
+    // Only return views owned by this user
+    $filtered = array_filter($views, fn($v) => ($v['user_id'] ?? '') === $user['id']);
+    json(['views' => array_values($filtered)]);
 }
 
 function handleSaveView(): void
 {
+    $user = guard();
     $body = getBody();
     if (empty($body['name'])) {
         http_response_code(400);
@@ -300,7 +307,9 @@ function handleSaveView(): void
 
     $viewIdx = -1;
     foreach ($views as $i => $v) {
-        if ($v['name'] === $body['name']) { $viewIdx = $i; break; }
+        if ($v['name'] === $body['name'] && ($v['user_id'] ?? '') === $user['id']) { 
+            $viewIdx = $i; break; 
+        }
     }
     
     $version = 1;
@@ -313,13 +322,13 @@ function handleSaveView(): void
 
     $view = [
         'id'         => $id,
+        'user_id'    => $user['id'],
         'name'       => $body['name'],
         'columns'    => $body['columns'] ?? [],
         'filters'    => $body['filters'] ?? [],
         'sort'       => $body['sort'] ?? null,
         'created_at' => date('c'),
         'is_default' => $body['is_default'] ?? false,
-        'shared_with_team' => $body['shared_with_team'] ?? false,
         'version'    => $version,
     ];
 
@@ -327,12 +336,14 @@ function handleSaveView(): void
     else $views[] = $view;
 
     file_put_contents($viewsFile, json_encode($views, JSON_PRETTY_PRINT));
+    logAction($user['id'], 'view_saved', ['view_id' => $id]);
 
     json(['success' => true, 'view' => $view]);
 }
 
 function handleDeleteView(): void
 {
+    $user = guard();
     $body = getBody();
     $id   = $body['id'] ?? null;
 
@@ -347,10 +358,18 @@ function handleDeleteView(): void
         ? (json_decode(file_get_contents($viewsFile), true) ?? [])
         : [];
 
-    $views = array_values(array_filter($views, fn($v) => $v['id'] !== $id));
-    file_put_contents($viewsFile, json_encode($views, JSON_PRETTY_PRINT));
+    $initialCount = count($views);
+    $views = array_values(array_filter($views, function($v) use ($id, $user) {
+        return $v['id'] !== $id || ($v['user_id'] ?? '') !== $user['id'];
+    }));
 
-    json(['success' => true]);
+    if (count($views) < $initialCount) {
+        file_put_contents($viewsFile, json_encode($views, JSON_PRETTY_PRINT));
+        logAction($user['id'], 'view_deleted', ['view_id' => $id]);
+        json(['success' => true]);
+    } else {
+        json(['error' => 'View not found or unauthorized'], 404);
+    }
 }
 
 function handleProduce(string $kafkaBroker): void
@@ -431,26 +450,21 @@ function handleGetSources(string $solrUrl): void
 }
 
 function handleGetColumnConfig(): void {
-    $body = getBody();
-    $userId = $_GET['user_id'] ?? $body['user_id'] ?? 'default';
-    $reportId = $_GET['report_id'] ?? $body['report_id'] ?? 'default';
-    
-    $file = __DIR__ . '/../storage/column_config_' . md5($userId . $reportId) . '.json';
+    $user = guard();
+    $file = __DIR__ . '/../storage/column_config_' . $user['id'] . '.json';
     if (file_exists($file)) json(json_decode(file_get_contents($file), true));
-    else json(['user_id' => $userId, 'report_id' => $reportId, 'column_config' => []]);
+    else json(['user_id' => $user['id'], 'column_config' => []]);
 }
 
 function handleSaveColumnConfig(): void {
+    $user = guard();
     $body = getBody();
-    $userId = $body['user_id'] ?? 'default';
-    $reportId = $body['report_id'] ?? 'default';
     $config = $body['column_config'] ?? [];
     
-    $file = __DIR__ . '/../storage/column_config_' . md5($userId . $reportId) . '.json';
+    $file = __DIR__ . '/../storage/column_config_' . $user['id'] . '.json';
     @mkdir(dirname($file), 0777, true);
     file_put_contents($file, json_encode([
-        'user_id' => $userId,
-        'report_id' => $reportId,
+        'user_id' => $user['id'],
         'column_config' => $config,
         'updated_at' => date('c')
     ], JSON_PRETTY_PRINT));
@@ -643,6 +657,184 @@ function solrGet(string $url): string
     $resp = curl_exec($ch);
     curl_close($ch);
     return $resp;
+}
+
+
+// ── Auth Handlers ─────────────────────────────────────────────────────────────
+
+function handleLogin(): void
+{
+    $body = getBody();
+    $email = $body['email'] ?? '';
+    $pass  = $body['password'] ?? '';
+
+    $usersFile = __DIR__ . '/../storage/users.json';
+    $users = json_decode(file_get_contents($usersFile), true) ?? [];
+
+    $user = null;
+    foreach ($users as $u) {
+        if ($u['email'] === $email && $u['password'] === $pass) {
+            $user = $u;
+            break;
+        }
+    }
+
+    if ($user) {
+        // In a real app, use JWT. Here we return a simple mock token.
+        unset($user['password']);
+        $user['token'] = 'mock-token-' . $user['id'];
+        json(['success' => true, 'user' => $user]);
+    } else {
+        http_response_code(401);
+        json(['error' => 'Invalid credentials']);
+    }
+}
+
+function handleGetUser(): void
+{
+    $token = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    if (str_starts_with($token, 'Bearer ')) {
+        $id = str_replace('Bearer mock-token-', '', $token);
+        
+        $usersFile = __DIR__ . '/../storage/users.json';
+        $users = json_decode(file_get_contents($usersFile), true) ?? [];
+
+        foreach ($users as $u) {
+            if ($u['id'] === $id) {
+                unset($u['password']);
+                json(['user' => $u]);
+                return;
+            }
+        }
+    }
+    http_response_code(401);
+    json(['error' => 'Unauthorized']);
+}
+
+
+// ── Report & Audit Handlers ───────────────────────────────────────────────────
+
+function handleGetReports(): void
+{
+    $user = guard();
+    $reportsFile = __DIR__ . '/../storage/reports.json';
+    $reports = json_decode(file_get_contents($reportsFile), true) ?? [];
+
+    if ($user['role'] === 'admin') {
+        json(['reports' => $reports]);
+    } else {
+        $filtered = array_filter($reports, function($r) use ($user) {
+            return ($r['is_global'] ?? false) || ($r['created_by'] === $user['id']);
+        });
+        json(['reports' => array_values($filtered)]);
+    }
+}
+
+function handleSaveReport(): void
+{
+    $user = guard();
+    $body = getBody();
+    $reportsFile = __DIR__ . '/../storage/reports.json';
+    $reports = json_decode(file_get_contents($reportsFile), true) ?? [];
+
+    $newReport = [
+        'id' => 'rep_' . uniqid(),
+        'name' => $body['name'] ?? 'Untitled Report',
+        'created_by' => $user['id'],
+        'is_global' => ($user['role'] === 'admin'),
+        'columns' => $body['columns'] ?? [],
+        'filters' => $body['filters'] ?? [],
+        'sort' => $body['sort'] ?? 'score desc',
+        'date_range' => $body['date_range'] ?? ['from' => '', 'to' => ''],
+        'created_at' => date('c')
+    ];
+
+    $reports[] = $newReport;
+    file_put_contents($reportsFile, json_encode($reports, JSON_PRETTY_PRINT));
+    
+    logAction($user['id'], 'report_created', ['report_id' => $newReport['id']]);
+    json(['success' => true, 'report' => $newReport]);
+}
+
+function handleDeleteReport(): void
+{
+    $user = guard();
+    if ($user['role'] !== 'admin') {
+        http_response_code(403);
+        json(['error' => 'Only admins can delete reports']);
+        return;
+    }
+
+    $body = getBody();
+    $id = $body['id'] ?? '';
+    $reportsFile = __DIR__ . '/../storage/reports.json';
+    $reports = json_decode(file_get_contents($reportsFile), true) ?? [];
+
+    $initialCount = count($reports);
+    $reports = array_filter($reports, fn($r) => $r['id'] !== $id);
+
+    if (count($reports) < $initialCount) {
+        file_put_contents($reportsFile, json_encode(array_values($reports), JSON_PRETTY_PRINT));
+        logAction($user['id'], 'report_deleted', ['report_id' => $id]);
+        json(['success' => true]);
+    } else {
+        json(['error' => 'Report not found'], 404);
+    }
+}
+
+function handleGetLogs(): void
+{
+    $user = guard();
+    if ($user['role'] !== 'admin') {
+        http_response_code(403);
+        json(['error' => 'Only admins can view logs']);
+        return;
+    }
+
+    $logsFile = __DIR__ . '/../storage/audit_logs.json';
+    $logs = json_decode(file_get_contents($logsFile), true) ?? [];
+    json(['logs' => array_reverse($logs)]);
+}
+
+// ── Shared Helpers ────────────────────────────────────────────────────────────
+
+function guard(): array
+{
+    $token = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    if (!str_starts_with($token, 'Bearer ')) {
+        http_response_code(401);
+        json(['error' => 'Unauthorized']);
+        exit;
+    }
+
+    $id = str_replace('Bearer mock-token-', '', $token);
+    $usersFile = __DIR__ . '/../storage/users.json';
+    $users = json_decode(file_get_contents($usersFile), true) ?? [];
+
+    foreach ($users as $u) {
+        if ($u['id'] === $id) {
+            return $u;
+        }
+    }
+
+    http_response_code(401);
+    json(['error' => 'Session expired']);
+    exit;
+}
+
+function logAction(string $userId, string $action, array $data = []): void
+{
+    $logsFile = __DIR__ . '/../storage/audit_logs.json';
+    $logs = json_decode(file_get_contents($logsFile), true) ?? [];
+
+    $logs[] = [
+        'user_id' => $userId,
+        'action' => $action,
+        'data' => $data,
+        'timestamp' => date('c')
+    ];
+
+    file_put_contents($logsFile, json_encode($logs, JSON_PRETTY_PRINT));
 }
 
 // ── Utils ─────────────────────────────────────────────────────────────────────

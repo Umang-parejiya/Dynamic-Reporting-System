@@ -2,50 +2,58 @@ import React, { useEffect } from 'react'
 import { useStore } from './store'
 import Sidebar from './components/Sidebar'
 import TopBar from './components/TopBar'
+import FilterBuilder from './components/FilterBuilder'
 import DataTable from './components/DataTable'
 import ChartPanel from './components/ChartPanel'
-import FilterBuilder from './components/FilterBuilder'
 import SavedViews from './components/SavedViews'
-import StatusBar from './components/StatusBar'
+import Login from './components/Login'
+import AuditLogs from './components/AuditLogs'
 import './App.css'
 
 export default function App() {
-  const { fetchSchema, fetchViews, fetchSources, query, activeTab, sidebarOpen } = useStore()
+  const { 
+    user, token, checkAuth, activeTab, sidebarOpen, fetchSchema, fetchSources, fetchViews, fetchReports 
+  } = useStore()
 
   useEffect(() => {
-    fetchSchema()
-    fetchViews()
-    fetchSources()
-    query()
+    if (token) {
+      checkAuth()
+    }
   }, [])
 
+  useEffect(() => {
+    if (user) {
+      fetchSchema()
+      fetchSources()
+      fetchViews()
+      fetchReports()
+    }
+  }, [user])
+
+  if (!user && token) {
+     return <div className="loading-screen">Verifying session...</div>
+  }
+
+  if (!user) {
+    return <Login />
+  }
+
   return (
-    <div className="app-layout">
-      {/* Left Sidebar */}
-      <aside className={`sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
-        <div className="sidebar-logo">
-          <span className="logo-icon">▲</span>
-          <span className="logo-text">Reporting<span>System</span></span>
-        </div>
-        <Sidebar />
-      </aside>
-
-      {/* Main Content */}
-      <main className="main-content">
+    <div className={`app-layout ${!sidebarOpen ? 'sidebar-collapsed' : ''}`}>
+      <Sidebar />
+      <div className="main-content">
         <TopBar />
-
         <div className="content-area">
-          {/* Filters */}
           <FilterBuilder />
 
           {/* Results */}
-          <div className="results-panel animate-fade-in">
-            {activeTab === 'table' ? <DataTable /> : <ChartPanel />}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            {activeTab === 'table' && <DataTable />}
+            {activeTab === 'charts' && <ChartPanel />}
+            {activeTab === 'logs' && <AuditLogs />}
           </div>
         </div>
-
-        <StatusBar />
-      </main>
+      </div>
 
       {/* Saved Views Drawer */}
       <SavedViews />

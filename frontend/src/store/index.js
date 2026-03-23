@@ -3,6 +3,59 @@ import { create } from 'zustand'
 const API = '/api'
 
 export const useStore = create((set, get) => ({
+   // ── Auth & User ──────────────────────────────────────────────────
+  user: null,
+  token: localStorage.getItem('token') || null,
+  authLoading: false,
+
+  login: async (email, password) => {
+    set({ authLoading: true })
+    try {
+      const res = await fetch(`${API}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      })
+      const data = await res.json()
+      if (data.success) {
+        localStorage.setItem('token', data.user.token)
+        set({ user: data.user, token: data.user.token })
+        get().fetchSchema()
+        get().loadColumnPreferences()
+        return { success: true }
+      }
+      return { success: false, error: data.error }
+    } catch (e) {
+      return { success: false, error: 'Connection failed' }
+    } finally {
+      set({ authLoading: false })
+    }
+  },
+
+  logout: () => {
+    localStorage.removeItem('token')
+    set({ user: null, token: null, results: [], total: 0 })
+  },
+
+  checkAuth: async () => {
+    const token = get().token
+    if (!token) return
+    try {
+      const res = await fetch(`${API}/user`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (res.ok) {
+        const data = await res.json()
+        set({ user: data.user })
+        get().loadColumnPreferences()
+      } else {
+        get().logout()
+      }
+    } catch (e) {
+      get().logout()
+    }
+  },
+
   // ── Schema ────────────────────────────────────────────────────────
   schema: [],
   schemaLoading: false,
@@ -12,7 +65,9 @@ export const useStore = create((set, get) => ({
     set({ schemaLoading: true, selectedSource: source || null })
     try {
       const url = source ? `${API}/schema?source=${encodeURIComponent(source)}` : `${API}/schema`
-      const res = await fetch(url)
+      const res = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${get().token}` }
+      })
       const data = await res.json()
       set({ schema: data.fields || [] })
       get().query(1)
@@ -24,7 +79,9 @@ export const useStore = create((set, get) => ({
   },
   fetchSources: async () => {
     try {
-      const res = await fetch(`${API}/sources`)
+      const res = await fetch(`${API}/sources`, {
+        headers: { 'Authorization': `Bearer ${get().token}` }
+      })
       const data = await res.json()
       set({ sources: data.sources || [] })
     } catch (e) {
@@ -48,10 +105,11 @@ export const useStore = create((set, get) => ({
     const s = get()
     await fetch(`${API}/column-config`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${s.token}`
+      },
       body: JSON.stringify({
-        user_id: 'default',
-        report_id: 'default',
         column_config: {
           widths: s.columnWidths,
           order: s.columnOrder,
@@ -62,7 +120,9 @@ export const useStore = create((set, get) => ({
   },
   loadColumnPreferences: async () => {
     try {
-      const res = await fetch(`${API}/column-config?user_id=default&report_id=default`)
+      const res = await fetch(`${API}/column-config`, {
+        headers: { 'Authorization': `Bearer ${get().token}` }
+      })
       const data = await res.json()
       if (data.column_config && data.column_config.order) {
         set({
@@ -145,7 +205,10 @@ export const useStore = create((set, get) => ({
     try {
       const res = await fetch(`${API}/query`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${s.token}`
+        },
         body: JSON.stringify(body),
       })
       const data = await res.json()
@@ -181,7 +244,10 @@ export const useStore = create((set, get) => ({
     try {
       const res = await fetch(`${API}/facets`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${get().token}`
+        },
         body: JSON.stringify({ fields, limit: 100 }),
       })
       const data = await res.json()
@@ -222,7 +288,10 @@ export const useStore = create((set, get) => ({
     try {
       const res = await fetch(`${API}/aggregations`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${get().token}`
+        },
         body: JSON.stringify({
           q: '*:*',
           filters: activeFilters,
@@ -241,7 +310,9 @@ export const useStore = create((set, get) => ({
   views: [],
   fetchViews: async () => {
     try {
-      const res = await fetch(`${API}/views`)
+      const res = await fetch(`${API}/views`, {
+        headers: { 'Authorization': `Bearer ${get().token}` }
+      })
       const data = await res.json()
       set({ views: data.views || [] })
     } catch (e) { }
@@ -250,7 +321,10 @@ export const useStore = create((set, get) => ({
     const s = get()
     await fetch(`${API}/views`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${s.token}`
+      },
       body: JSON.stringify({
         ...viewData,
         columns: s.selectedColumns,
@@ -272,14 +346,81 @@ export const useStore = create((set, get) => ({
   deleteView: async (id) => {
     await fetch(`${API}/views`, {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${get().token}`
+      },
       body: JSON.stringify({ id }),
     })
     get().fetchViews()
   },
 
+  // ── Reports & Permissions ────────────────────────────────────────
+  reports: [],
+  auditLogs: [],
+  fetchReports: async () => {
+    try {
+      const res = await fetch(`${API}/reports`, {
+        headers: { 'Authorization': `Bearer ${get().token}` }
+      })
+      const data = await res.json()
+      set({ reports: data.reports || [] })
+    } catch (e) { }
+  },
+  saveReport: async (name) => {
+    const s = get()
+    try {
+      const res = await fetch(`${API}/reports`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${s.token}`
+        },
+        body: JSON.stringify({
+          name,
+          columns: s.selectedColumns,
+          filters: s.filters,
+          sort: s.sort,
+          date_range: s.dateRange
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        get().fetchReports()
+        return true
+      }
+    } catch (e) { }
+    return false
+  },
+  deleteReport: async (id) => {
+    try {
+      const res = await fetch(`${API}/reports`, {
+        method: 'DELETE',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${get().token}`
+        },
+        body: JSON.stringify({ id }),
+      })
+      if (res.ok) {
+        get().fetchReports()
+        return true
+      }
+    } catch (e) { }
+    return false
+  },
+  fetchLogs: async () => {
+    try {
+      const res = await fetch(`${API}/logs`, {
+        headers: { 'Authorization': `Bearer ${get().token}` }
+      })
+      const data = await res.json()
+      set({ auditLogs: data.logs || [] })
+    } catch (e) { }
+  },
+
   // ── UI State ──────────────────────────────────────────────────────
-  activeTab: 'table',   // table | charts
+  activeTab: 'table',   // table | charts | logs
   sidebarOpen: true,
   setActiveTab: (tab) => set({ activeTab: tab }),
   setSidebarOpen: (v) => set({ sidebarOpen: v }),

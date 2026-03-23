@@ -3,24 +3,34 @@ import { useStore } from '../store'
 import { BookMarked, X, Save, Trash2, Star, Check } from 'lucide-react'
 
 export default function SavedViews() {
-  const { views, saveView, loadView, deleteView } = useStore()
+  const { 
+    views, saveView, loadView, deleteView,
+    reports, fetchReports, saveReport, deleteReport, user
+  } = useStore()
   const [open, setOpen] = useState(false)
+  const [tab, setTab] = useState('views') // 'views' | 'reports'
   const [saving, setSaving] = useState(false)
   const [newName, setNewName] = useState('')
   const [isDefault, setIsDefault] = useState(false)
-  const [shared, setShared] = useState(false)
   const [saved, setSaved] = useState(false)
 
   const handleSave = async () => {
     if (!newName.trim()) return
     setSaving(true)
-    await saveView({ name: newName.trim(), is_default: isDefault, shared_with_team: shared })
-    setNewName('')
-    setIsDefault(false)
-    setShared(false)
+    let success = false
+    if (tab === 'views') {
+      success = await saveView({ name: newName.trim(), is_default: isDefault })
+    } else {
+      success = await saveReport(newName.trim())
+    }
+    
+    if (success) {
+      setNewName('')
+      setIsDefault(false)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    }
     setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
   }
 
   return (
@@ -80,9 +90,29 @@ export default function SavedViews() {
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '16px 20px', borderBottom: '1px solid var(--border)',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <BookMarked size={16} style={{ color: 'var(--accent)' }} />
-            <span style={{ fontWeight: 600, fontSize: 14 }}>Saved Views</span>
+          <div style={{ display: 'flex', gap: 15 }}>
+            <button 
+              onClick={() => setTab('views')}
+              style={{ 
+                background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0',
+                fontSize: 14, fontWeight: tab === 'views' ? 700 : 500,
+                color: tab === 'views' ? 'var(--accent)' : 'var(--text3)',
+                borderBottom: tab === 'views' ? '2px solid var(--accent)' : '2px solid transparent'
+              }}
+            >
+              My Views
+            </button>
+            <button 
+              onClick={() => setTab('reports')}
+              style={{ 
+                background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0',
+                fontSize: 14, fontWeight: tab === 'reports' ? 700 : 500,
+                color: tab === 'reports' ? 'var(--accent)' : 'var(--text3)',
+                borderBottom: tab === 'reports' ? '2px solid var(--accent)' : '2px solid transparent'
+              }}
+            >
+              Reports
+            </button>
           </div>
           <button
             onClick={() => setOpen(false)}
@@ -92,61 +122,76 @@ export default function SavedViews() {
           </button>
         </div>
 
-        {/* Save New View */}
-        <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>
-            Save Current View
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                className="input"
-                placeholder="View name..."
-                value={newName}
-                onChange={e => setNewName(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSave()}
-                style={{ fontSize: 12, flex: 1 }}
-              />
-              <button
-                className={`btn ${saved ? '' : 'btn-primary'}`}
-                onClick={handleSave}
-                disabled={saving || !newName.trim()}
-                style={saved ? { background: 'var(--success)', borderColor: 'var(--success)', color: '#fff' } : {}}
-              >
-                {saved ? <Check size={14} /> : <Save size={14} />}
-              </button>
+        {/* Save New */}
+        {(tab === 'views' || user?.role === 'admin') && (
+          <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>
+              {tab === 'views' ? 'Save Personal View' : 'Publish Global Report'}
             </div>
-            
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text2)', cursor: 'pointer' }}>
-                <input type="checkbox" checked={isDefault} onChange={e => setIsDefault(e.target.checked)} style={{ accentColor: 'var(--accent)' }} />
-                Set as Default
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text2)', cursor: 'pointer' }}>
-                <input type="checkbox" checked={shared} onChange={e => setShared(e.target.checked)} style={{ accentColor: 'var(--accent)' }} />
-                Share with Team
-              </label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  className="input"
+                  placeholder={tab === 'views' ? "View name..." : "Report name..."}
+                  value={newName}
+                  onChange={e => setNewName(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSave()}
+                  style={{ fontSize: 12, flex: 1 }}
+                />
+                <button
+                  className={`btn ${saved ? '' : 'btn-primary'}`}
+                  onClick={handleSave}
+                  disabled={saving || !newName.trim()}
+                  style={saved ? { background: 'var(--success)', borderColor: 'var(--success)', color: '#fff' } : {}}
+                >
+                  {saved ? <Check size={14} /> : (tab === 'views' ? <Save size={14} /> : <PlusCircle size={14} />)}
+                </button>
+              </div>
+              
+              {tab === 'views' && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text2)', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={isDefault} onChange={e => setIsDefault(e.target.checked)} style={{ accentColor: 'var(--accent)' }} />
+                  Set as Default
+                </label>
+              )}
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Views List */}
+        {/* List */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '10px 12px' }}>
-          {views.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--text3)', fontSize: 12 }}>
-              <BookMarked size={32} style={{ opacity: .2, marginBottom: 8 }} />
-              <div>No saved views yet</div>
-              <div style={{ fontSize: 11, marginTop: 4 }}>Save your current filters and columns</div>
-            </div>
+          {tab === 'views' ? (
+            views.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--text3)', fontSize: 12 }}>
+                <div>No personal views yet</div>
+              </div>
+            ) : (
+              views.map(v => (
+                <ViewCard
+                  key={v.id}
+                  view={v}
+                  onLoad={() => { loadView(v); setOpen(false) }}
+                  onDelete={() => deleteView(v.id)}
+                />
+              ))
+            )
           ) : (
-            views.map(view => (
-              <ViewCard
-                key={view.id}
-                view={view}
-                onLoad={() => { loadView(view); setOpen(false) }}
-                onDelete={() => deleteView(view.id)}
-              />
-            ))
+            reports.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--text3)', fontSize: 12 }}>
+                <div>No global reports available</div>
+              </div>
+            ) : (
+              reports.map(r => (
+                <ViewCard
+                  key={r.id}
+                  view={r}
+                  isReport={true}
+                  onLoad={() => { loadView(r); setOpen(false) }}
+                  onDelete={() => deleteReport(r.id)}
+                  canDelete={user?.role === 'admin'}
+                />
+              ))
+            )
           )}
         </div>
       </div>
@@ -154,7 +199,7 @@ export default function SavedViews() {
   )
 }
 
-function ViewCard({ view, onLoad, onDelete }) {
+function ViewCard({ view, onLoad, onDelete, isReport, canDelete = true }) {
   const [hovering, setHovering] = useState(false)
 
   return (
@@ -198,18 +243,20 @@ function ViewCard({ view, onLoad, onDelete }) {
         </div>
         <div style={{ display: 'flex', gap: 4 }}>
           <button className="btn btn-sm" onClick={onLoad}>Load</button>
-          <button
-            onClick={onDelete}
-            style={{
-              background: 'none', border: '1px solid transparent', padding: '4px 6px',
-              borderRadius: 6, cursor: 'pointer', color: 'var(--text3)',
-              transition: 'all .15s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--error)'; e.currentTarget.style.color = 'var(--error)' }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.color = 'var(--text3)' }}
-          >
-            <Trash2 size={13} />
-          </button>
+          {canDelete && (
+            <button
+              onClick={onDelete}
+              style={{
+                background: 'none', border: '1px solid transparent', padding: '4px 6px',
+                borderRadius: 6, cursor: 'pointer', color: 'var(--text3)',
+                transition: 'all .15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--error)'; e.currentTarget.style.color = 'var(--error)' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.color = 'var(--text3)' }}
+            >
+              <Trash2 size={13} />
+            </button>
+          )}
         </div>
       </div>
     </div>
